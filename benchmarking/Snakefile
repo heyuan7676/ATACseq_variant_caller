@@ -1,0 +1,153 @@
+import os 
+
+configfile: 'config.yaml'
+
+'''Load from config file'''
+
+PICARD = config['PICARD']
+GATK = config['GATK']
+SAMTOOLS = config['SAMTOOLS']
+
+DIR = config['DIR']
+
+#INDIVS = os.environ.get("INDIVS", "")
+INDIVS = []
+fn = open('samples.txt', 'r')
+for line in fn.readlines():
+    INDIVS.append(line.rstrip())
+
+FQ_DIR = config['FQ_DIR']
+BOWTIE_DIR = config['BOWTIE_DIR']
+
+# Bowtie 2 genome
+BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
+SUFFIX = '.bowtie2.grch38.sorted.auto'
+
+GENOME = config['GENOME']
+THREADS = config['THREADS']
+
+#include: 'variant_caller/variant_calling.Snakefile'
+#include: 'alignment/bowtie2_align.Snakefile'
+
+
+''' Snakemake rules '''
+rule all:
+    input:
+        expand(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.g.vcf.gz'), indiv=INDIVS)
+
+
+'''Map paired-ended fastq reads to genome using bowtie2'''
+
+rule align_to_hg38:
+    input:
+        reads1 = os.path.join(FQ_DIR, '{indiv}' + '_r1.fixed.fastq.gz'),
+        reads2 = os.path.join(FQ_DIR, '{indiv}' + '_r2.fixed.fastq.gz'),
+    output:
+        sam = os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam')
+    params:
+        index = BOWTIE_GENOME_INDEX
+    threads:
+        THREADS
+    conda:
+        "envs/env_py37.yml"
+    shell:
+        'bowtie2 -t -x {params.index} -1 {input.reads1} -2 {input.reads2} -S {output.sam} --threads {threads}'
+
+
+rule sort_sam:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+    shell:
+        'samtools sort {input} > {output}'
+
+
+rule index_sam:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam.bai')
+    shell:
+        'samtools index {input}'
+
+
+rule keep_autosomal_genome:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.auto.bam')
+    threads:
+        THREADS
+    shell:
+        'samtools view -@ {threads} -b {input} chr{{1..22}} > {output}'
+
+
+
+RGPL = 'illumina'
+RGPU = 'Unknown'
+
+rule add_rg:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
+    params:
+        tmp = os.path.join(BOWTIE_DIR, 'tmp/indiv'),
+        label = '{indiv}',
+        grid = '{indiv}',
+        rgsm = '{indiv}'
+    shell:
+        '{PICARD} AddOrReplaceReadGroups I={input}  O={output}  RGID={params.grid} RGLB={params.label} RGPL={RGPL} RGSM={params.rgsm} RGPU={RGPU} TMP_DIR={params.tmp}'
+
+rule mark_dup:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
+    output:
+        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+        metric = os.path.join(BOWTIE_DIR, '{indiv}' + '.dedup.metrics')
+    params:
+        tmp = os.path.join(BOWTIE_DIR, 'tmp')
+    threads: THREADS
+    shell:
+        '{PICARD} MarkDuplicates INPUT= {input} OUTPUT= {output.bam} METRICS_FILE= {output.metric} TMP_DIR={params.tmp}'
+
+rule index_post_removeDup:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam.bai'),
+    shell:
+        '{SAMTOOLS} index {input}'
+
+'''
+Variant calling using GATK
+'''
+GENOME_DICT = '.'.join(GENOME.split('.')[:-1]) + '.dict'
+rule build_genome_dict:
+    '''
+    Build `.dict` file for reference genome
+    '''
+    input:
+        GENOME
+    output:
+        GENOME_DICT
+    shell:
+        '{PICARD} CreateSequenceDictionary R={input} O={output}'
+
+rule GATK_haplotypecaller:
+    input:
+        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+        bai = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam.bai'),
+        genome_dict = GENOME_DICT
+    output:
+        vcf_gz = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
+    params:
+        tmp = os.path.join(BOWTIE_DIR, 'tmp')
+    threads: THREADS
+    shell:
+        '{GATK} --java-options "-XX:ParallelGCThreads={threads}" HaplotypeCaller -R {GENOME} \
+            -I {input.bam} -O {output.vcf_gz} --tmp-dir {params.tmp} --native-pair-hmm-threads {threads} \
+            -ERC GVCF'
+
+
