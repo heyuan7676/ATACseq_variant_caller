@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=24:00:00
-#SBATCH -p skylake
+#SBATCH -p shared
 
 source activate snakemake
 #INDIV="$1" snakemake -s Snakefile --cores 24
@@ -11,6 +11,8 @@ ml picard
 ml samtools
 ml gatk
 ml bowtie2
+ml bcftools
+ml vcftools
 
 ## Run one snakemake job
 #INDIV="$1" snakemake -s Snakefile --cores 24
@@ -18,9 +20,11 @@ ml bowtie2
 
 ## Run multiple jobs in parallel
 snakemake --use-conda --jobs 20 \
-    --cluster "sbatch --ntasks=24 --time=20:00:00 --partition parallel" \
+    --cluster "sbatch --ntasks=1 --time=6:00:00 --partition shared" \
     --rerun-incomplete \
     --keep-going \
+    --latency-wait 60 \
+    --printshellcmds \
     $@
 
 # Note: need to specify conda environment in rule
