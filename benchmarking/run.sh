@@ -20,7 +20,7 @@ ml vcftools
 
 ## Run multiple jobs in parallel
 snakemake --use-conda --jobs 20 \
-    --cluster "sbatch --ntasks=1 --time=6:00:00 --partition shared" \
+    --cluster "sbatch --ntasks=24 --time=12:00:00 --partition shared" \
     --rerun-incomplete \
     --keep-going \
     --latency-wait 60 \

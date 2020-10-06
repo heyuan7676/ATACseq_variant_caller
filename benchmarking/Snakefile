@@ -1,4 +1,4 @@
-import os 
+import os
 
 configfile: 'config.yaml'
 
@@ -7,12 +7,13 @@ configfile: 'config.yaml'
 PICARD = config['PICARD']
 GATK = config['GATK']
 SAMTOOLS = config['SAMTOOLS']
+BCFTOOLS = config['BCFTOOLS']
+VCFTOOLS = config['VCFTOOLS']
 
 DIR = config['DIR']
 
-#INDIVS = os.environ.get("INDIVS", "")
 INDIVS = []
-fn = open('samples.txt', 'r')
+fn = open('test.txt', 'r')
 for line in fn.readlines():
     INDIVS.append(line.rstrip())
 
@@ -21,10 +22,11 @@ BOWTIE_DIR = config['BOWTIE_DIR']
 
 # Bowtie 2 genome
 BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
-SUFFIX = '.bowtie2.grch38.sorted.auto'
+SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
 
 GENOME = config['GENOME']
 THREADS = config['THREADS']
+minDP_arr = config['minDP_arr']
 
 #include: 'variant_caller/variant_calling.Snakefile'
 #include: 'alignment/bowtie2_align.Snakefile'
@@ -33,7 +35,8 @@ THREADS = config['THREADS']
 ''' Snakemake rules '''
 rule all:
     input:
-        expand(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.g.vcf.gz'), indiv=INDIVS)
+        expand(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.genotype.minDP' + '{minDP}' + '.txt'), indiv=INDIVS, minDP = minDP_arr)
+
 
 
 '''Map paired-ended fastq reads to genome using bowtie2'''
@@ -43,7 +46,7 @@ rule align_to_hg38:
         reads1 = os.path.join(FQ_DIR, '{indiv}' + '_r1.fixed.fastq.gz'),
         reads2 = os.path.join(FQ_DIR, '{indiv}' + '_r2.fixed.fastq.gz'),
     output:
-        sam = os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam')
+        sam = temp(os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam'))
     params:
         index = BOWTIE_GENOME_INDEX
     threads:
@@ -58,29 +61,30 @@ rule sort_sam:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam'))
     shell:
-        'samtools sort {input} > {output}'
+        '{SAMTOOLS} sort {input} > {output}'
 
 
 rule index_sam:
     input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam.bai')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam.bai'))
     shell:
-        'samtools index {input}'
+        '{SAMTOOLS} index {input}'
 
 
 rule keep_autosomal_genome:
     input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.sam')
+        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam'),
+        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam.bai')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sorted.auto.bam')
+        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
     threads:
         THREADS
     shell:
-        'samtools view -@ {threads} -b {input} chr{{1..22}} > {output}'
+        '{SAMTOOLS} view -@ {threads} -b {input} chr{{1..22}} > {output}'
 
 
 
@@ -91,7 +95,7 @@ rule add_rg:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam'))
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp/indiv'),
         label = '{indiv}',
@@ -104,7 +108,7 @@ rule mark_dup:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
     output:
-        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+        bam = temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')),
         metric = os.path.join(BOWTIE_DIR, '{indiv}' + '.dedup.metrics')
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp')
@@ -112,13 +116,30 @@ rule mark_dup:
     shell:
         '{PICARD} MarkDuplicates INPUT= {input} OUTPUT= {output.bam} METRICS_FILE= {output.metric} TMP_DIR={params.tmp}'
 
+
+rule clean_header:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')
+    output:
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'))
+    shell:
+        """
+        {SAMTOOLS} view -H {input} | grep -v chr[a-Z] | grep -v random > {output}.temp
+        {SAMTOOLS} view {input} >> {output}.temp
+        {SAMTOOLS} view -h -b -S {output}.temp > {output}
+        rm {output}.temp
+        """
+
 rule index_post_removeDup:
     input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'),
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam.bai'),
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'))
     shell:
         '{SAMTOOLS} index {input}'
+
+
+
 
 '''
 Variant calling using GATK
@@ -137,17 +158,85 @@ rule build_genome_dict:
 
 rule GATK_haplotypecaller:
     input:
-        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
-        bai = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam.bai'),
+        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'),
+        bai = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'),
         genome_dict = GENOME_DICT
     output:
-        vcf_gz = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
+        gvcf_gz = temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz'))
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp')
     threads: THREADS
     shell:
         '{GATK} --java-options "-XX:ParallelGCThreads={threads}" HaplotypeCaller -R {GENOME} \
-            -I {input.bam} -O {output.vcf_gz} --tmp-dir {params.tmp} --native-pair-hmm-threads {threads} \
+            -I {input.bam} -O {output.gvcf_gz} --tmp-dir {params.tmp} --native-pair-hmm-threads {threads} \
             -ERC GVCF'
+
+rule filtergVCF_DP2:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
+    output:
+        temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf.recode.vcf'))
+    params:
+        prefix = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf')
+    shell:
+        '{VCFTOOLS} --gzvcf {input} --min-meanDP 2 --recode --recode-INFO-all --out {params.prefix}'
+
+
+rule gvcf2vcf:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf.recode.vcf')
+    output:
+        temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf'))
+    shell:
+        """
+        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME} > {output}
+        """
+
+
+
+oneK_variants_locations='/work-zfs/abattle4/heyuan/Variant_calling/benchmarking/datasets/GBR/Genotype/1k_genome.variants.locations.txt'
+rule filterVCF_1k_variants:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.recode.vcf'),
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.recode.INFO.txt')
+    params:
+        prefix = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants')
+    shell:
+        """
+        {VCFTOOLS} --vcf {input} --out {params.prefix} --positions {oneK_variants_locations} --recode
+        {BCFTOOLS} query -f '%CHROM\t%POS\t[%DP\t%PL]\n' {params.prefix}.recode.vcf > {params.prefix}.recode.INFO.txt
+        """
+
+
+rule filterVCF_minDP:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.recode.vcf')
+    output:
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}' + '.recode.vcf'))
+    params:
+        minimumdp = '{minDP}',
+        prefix = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}')
+    shell:
+        """
+        {VCFTOOLS} --vcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
+        """
+
+
+'''
+Call genotypes
+'''
+
+rule call_genotype:
+    input:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}' + '.recode.vcf')
+    output:
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.genotype.minDP' + '{minDP}' + '.txt')
+    conda:
+        "envs/env_py37.yml"
+    shell:
+        'vcf-to-tab < {input} > {output}'
+
 
 

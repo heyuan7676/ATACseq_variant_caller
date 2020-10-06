@@ -42,7 +42,7 @@ rule add_rg:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam'))
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp/indiv'),
         label = '{indiv}',
@@ -55,7 +55,7 @@ rule mark_dup:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
     output:
-        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
+        bam = temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')),
         metric = os.path.join(BOWTIE_DIR, '{indiv}' + '.dedup.metrics')
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp')
@@ -68,7 +68,7 @@ rule clean_header:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'))
     shell:
         """
         {SAMTOOLS} view -H {input} | grep -v chr[a-Z] | grep -v random > {output}.temp
@@ -81,7 +81,7 @@ rule index_post_removeDup:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'),
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'),
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'))
     shell:
         '{SAMTOOLS} index {input}'
 
@@ -106,7 +106,7 @@ rule GATK_haplotypecaller:
         bai = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'),
         genome_dict = GENOME_DICT
     output:
-        gvcf_gz = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
+        gvcf_gz = temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz'))
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp')
     threads: THREADS
@@ -119,7 +119,7 @@ rule filtergVCF_DP2:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf.recode.vcf')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf.recode.vcf'))
     params:
         prefix = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf')
     shell:
@@ -130,7 +130,7 @@ rule gvcf2vcf:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.gvcf.recode.vcf')        
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf'))
     shell:
         """
         {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME} > {output}
@@ -142,7 +142,8 @@ rule filterVCF_1k_variants:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf') 
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.recode.vcf')
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.recode.vcf'),
+        os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.recode.INFO.txt')
     params:
         prefix = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants')
     shell:
@@ -156,7 +157,7 @@ rule filterVCF_minDP:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.recode.vcf')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}' + '.recode.vcf')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}' + '.recode.vcf'))
     params:
         minimumdp = '{minDP}',
         prefix = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}')
@@ -175,6 +176,8 @@ rule call_genotype:
         os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.variants.minDP' + '{minDP}' + '.recode.vcf')
     output:
         os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.genotype.minDP' + '{minDP}' + '.txt')
+    conda:
+        "envs/env_py37.yml"
     shell:
         'vcf-to-tab < {input} > {output}'
 
