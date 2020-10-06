@@ -48,23 +48,24 @@ samtools view -@ 6 -b \
   -T ${grch37} \
   -o ${bam_fn} \
   ${cram_fn}
-rm ${cram_fn}
+rm ${cram_fn}*
 
 # 2). remove reads mapped to mitochondrial genome (mtDNA)
 echo "[INFO]: Removing reads that don't map to autosomal chromosomes..."
 bash check_mtDNA.sh ${bam_fn}
 samtools view -@ 6 -b ${bam_fn} 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 > ${sample_dir}/${donor_ID}.autosomal.bam
-rm ${bam_fn}
-bam_fn=${sample_dir}/${donor_ID}.autosomal.bam
+rm ${bam_fn}*
 
 # 3).bam --> fastq files
 echo "[INFO]: Converting bam to fastq..."
+bam_fn=${sample_dir}/${donor_ID}.autosomal.bam
 fq_fn=${sample_dir}/${donor_ID}
 samtools bam2fq -@ 6 ${bam_fn} > ${fq_fn}.fastq
 rm ${bam_fn}
 
 # 4).remove reads with duplicated names in the fastq file
 cat ${fq_fn}.fastq | seqkit rmdup -n -o ${fq_fn}.clean.fastq.gz -d ${fq_fn}.duplicated.fastq.gz -D ${fq_fn}.duplicated.txt
+rm ${fq_fn}.fastq
 
 # 5).split in the paired-ended files
 zcat ${fq_fn}.clean.fastq.gz | grep '^@.*/1$' -A 3 --no-group-separator > ${fq_fn}_r1.fastq 
