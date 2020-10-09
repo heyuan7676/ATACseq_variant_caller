@@ -19,8 +19,8 @@ ml vcftools
 
 
 ## Run multiple jobs in parallel
-snakemake --use-conda --jobs 10 \
-    --cluster "sbatch --ntasks=24 --time=12:00:00 --partition lrgmem" \
+snakemake --use-conda --jobs 20 \
+    --cluster "sbatch --ntasks=12 --time=12:00:00 --partition shared" \
     --rerun-incomplete \
     --keep-going \
     --latency-wait 20 \
