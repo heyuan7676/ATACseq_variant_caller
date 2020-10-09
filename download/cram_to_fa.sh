@@ -4,32 +4,43 @@
 #SBATCH --time=12:00:00
 #SBATCH -p shared
 
-file_dir=/work-zfs/abattle4/heyuan/Variant_calling/benchmarking/datasets/GBR/ATAC_seq/ftp.sra.ebi.ac.uk/vol1/ERZ683
+file_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/ftp.sra.ebi.ac.uk/vol1/ERZ683
 sample="$1"
 sample_dir=${file_dir}/${sample}
 #sample=ERZ683839
 
-echo "[INFO]: "$sample
+f1=`cat SRA_file_reports.txt | grep $sample | awk -F'	' '{print $7}' | cut -d';' -f1 | xargs -n1 basename`
+f2=`cat SRA_file_reports.txt | grep $sample | awk -F'	' '{print $7}' | cut -d';' -f2 | xargs -n1 basename`
+
+if [[ $f1 == *cram ]]
+then
+	donor_ID=${f1/.cram/}
+else
+	donor_ID=${f2/.cram/}
+fi
+
+echo "[INFO]: Sample - "$sample" ; "donor ID - $donor_ID
+
+outputFN=${file_dir}/${donor_ID}_r1.fixed.fastq.gz
+if [ -f $outputFN ]
+then
+	echo "Finished running for "${sample}
+	exit
+fi
+
 
 # 0). download the dataset
-echo "[INFO]: Downloading..."
+#echo "[INFO]: Downloading..."
 bash download_ENA.sh ${sample}
 
 grch37=/work-zfs/abattle4/heyuan/database/GRCh37_reference/GRCh37.p13.genome.fa
 # if download fails, exist
 N=`ls ${file_dir}/${sample}/* | wc -l`
-if [ $N -lt 3 ]
+if [ $N -lt 2 ]
 then
        echo "[INFO]: download fails, exit"
        exit
 fi
-
-
-cram_fn=`ls ${file_dir}/${sample}/*cram`
-donor_ID=`ls ${file_dir}/${sample}/*cram | xargs -n1 basename`
-donor_ID=${donor_ID/.cram/}
-
-echo "[INFO]: donor ID - "$donor_ID
 
 # Stop if not in the second batch
 #N=`cat samples.txt | grep ${donor_ID} | wc -l`
@@ -65,7 +76,8 @@ rm ${bam_fn}
 
 # 4).remove reads with duplicated names in the fastq file
 cat ${fq_fn}.fastq | seqkit rmdup -n -o ${fq_fn}.clean.fastq.gz -d ${fq_fn}.duplicated.fastq.gz -D ${fq_fn}.duplicated.txt
-rm ${fq_fn}.fastq
+echo "[INFO]: ${fq_fn}.fastq"
+# rm ${fq_fn}.fastq
 
 # 5).split in the paired-ended files
 zcat ${fq_fn}.clean.fastq.gz | grep '^@.*/1$' -A 3 --no-group-separator > ${fq_fn}_r1.fastq 
@@ -73,7 +85,8 @@ zcat ${fq_fn}.clean.fastq.gz | grep '^@.*/2$' -A 3 --no-group-separator > ${fq_f
 
 gzip ${fq_fn}_r1.fastq
 gzip ${fq_fn}_r2.fastq
-rm ${fq_fn}.clean.fastq.gz
+echo "[INFO]: ${fq_fn}.clean.fastq.gzq"
+# rm ${fq_fn}.clean.fastq.gz
 
 # 6). repair the discrepancy in the two paired-end files
 # need to provide enough memory, otherwise would crash in the middle and hang in there forever
@@ -81,7 +94,11 @@ rm ${fq_fn}.clean.fastq.gz
 
 echo "[INFO]: Repair the discrepancy in the two paired-end files..."
 repair.sh in1=${fq_fn}_r1.fastq.gz in2=${fq_fn}_r2.fastq.gz out1=${fq_fn}_r1.fixed.fastq.gz out2=${fq_fn}_r2.fixed.fastq.gz outsingle=${fq_fn}_singletons.fq.gz
-rm ${fq_fn}_r1.fastq.gz
-rm ${fq_fn}_r2.fastq.gz
+echo "[INFO]: ${fq_fn}_r1.fastq.gz"
+# rm ${fq_fn}_r1.fastq.gz
+# rm ${fq_fn}_r2.fastq.gz
 
-mv ${sample_dir}/${donor_ID}*gz ${file_dir}/
+mv ${fq_fn}_r1.fixed.fastq.gz ${file_dir}
+mv ${fq_fn}_r2.fixed.fastq.gz ${file_dir}
+
+
