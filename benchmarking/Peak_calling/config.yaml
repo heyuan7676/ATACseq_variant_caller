@@ -1,0 +1,9 @@
+
+
+# tools
+MACS2 : '~/miniconda3/bin/macs2'
+BEDTOOLS : 'bedtools'
+SAMTOOLS: 'samtools'
+
+# data dir
+BOWTIE_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'

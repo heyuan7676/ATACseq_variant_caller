@@ -1,0 +1,65 @@
+import os
+
+configfile: 'config.yaml'
+
+'''Load from config file'''
+
+MACS2 = config['MACS2']
+BEDTOOLS = config['BEDTOOLS']
+SAMTOOLS = config['SAMTOOLS']
+
+
+INDIV = os.environ.get('INDIV').split()
+print(INDIV)
+
+#INDIV = []
+#fn = open('test.txt', 'r')
+#for line in fn.readlines():
+#    INDIV.append(line.rstrip())
+
+BOWTIE_DIR = config['BOWTIE_DIR']
+
+''' Snakemake rules '''
+rule all:
+    input:
+        expand(os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '.peaks.cnt.bed'), indiv=INDIV)
+
+
+'''Remove reads tagged by picard Duplicate'''
+rule removedup:
+    input:
+        os.path.join(BOWTIE_DIR, 'first_pass_bqsr', '{indiv}' + '-RG-dedup-cleanH.bam')
+    output:
+        os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '-clean.bam')
+    shell:
+        '{SAMTOOLS} view -b -F 0x400 {input} > {output}'
+
+
+
+'''Call peaks using MACS2'''
+rule peak_calling:
+    input:
+        os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '-clean.bam')
+    output:
+        os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '_peaks.narrowPeak')
+    params:
+        outdir =  os.path.join(BOWTIE_DIR, 'Peaks'),
+        prefix =  '{indiv}'
+    conda:
+        "envs/env_py37.yml"
+    shell:
+        '{MACS2} callpeak -t {input} -f BAM -g hs --shift -75 --extsize 150 --outdir {params.outdir} -n {params.prefix} -q 0.05'
+
+
+'''Count the number of reads overlapping with the peaks'''
+rule reads_overlap:
+    input:
+        reads = os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '-clean.bam'),
+        peaks = os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '_peaks.narrowPeak')
+    output:
+        os.path.join(BOWTIE_DIR, 'Peaks', '{indiv}' + '.peaks.cnt.bed')
+    shell:
+        """
+        {BEDTOOLS} intersect -abam {input.reads} -b {input.peaks} -wo -bed | cut -d'	' -f13-16 | bedtools merge -c 4 -o count > {output}
+        """
+
