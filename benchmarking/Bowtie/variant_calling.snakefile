@@ -1,86 +1,27 @@
 import os
 
-SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
-RGPL = 'illumina'
-RGPU = 'Unknown'
+## TODO: interesting_region
 
-rule add_rg:
-    input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
-    output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
-    params:
-        tmp = os.path.join(BOWTIE_DIR, 'tmp/indiv'),
-        label = '{indiv}',
-        grid = '{indiv}',
-        rgsm = '{indiv}'
-    shell:
-        '{PICARD} AddOrReplaceReadGroups I={input}  O={output}  RGID={params.grid} RGLB={params.label} RGPL={RGPL} RGSM={params.rgsm} RGPU={RGPU} TMP_DIR={params.tmp}'
-
-rule mark_dup:
-    input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam')
-    output:
-        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam'),
-        metric = os.path.join(BOWTIE_DIR, 'dedup_metrics', '{indiv}' + '.dedup.metrics')
-    params:
-        tmp = os.path.join(BOWTIE_DIR, 'tmp')
-    threads: THREADS
-    shell:
-        '{PICARD} MarkDuplicates INPUT= {input} OUTPUT= {output.bam} METRICS_FILE= {output.metric} TMP_DIR={params.tmp}'
-
-
-rule clean_header:
-    input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')
-    output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam')
-    shell:
-        """
-        {SAMTOOLS} view -H {input} | grep -v chr[a-Z] | grep -v random > {output}.temp
-        {SAMTOOLS} view {input} >> {output}.temp
-        {SAMTOOLS} view -h -b -S {output}.temp > {output}
-        rm {output}.temp
-        """
-
-rule index_post_removeDup:
-    input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'),
-    output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai')
-    shell:
-        '{SAMTOOLS} index {input}'
-
-
+DIR_FIRST_PASS = os.path.join(BOWTIE_DIR, 'first_pass_bqsr')
+GENOME_DICT = '.'.join(GENOME_STAR.split('.')[:-1]) + '.dict'
 
 '''
 Variant calling using GATK
 '''
 
-GENOME_DICT = '.'.join(GENOME.split('.')[:-1]) + '.dict'
-rule build_genome_dict:
-    '''
-    Build `.dict` file for reference genome
-    '''
-    input:
-        GENOME
-    output:
-        GENOME_DICT
-    shell:
-        '{PICARD} CreateSequenceDictionary R={input} O={output}'
-
 rule GATK_haplotypecaller:
     input:
-        bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam'),
-        bai = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup-cleanH.bam.bai'),
-        genome_dict = GENOME_DICT
+        bam = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-cleanH.bam'),
+        bai = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-cleanH.bam.bai'),
+        genome_dict = GENOME_DICT,
+        interesting_region = os.path.join(DIR_FIRST_PASS, '{indiv}' + '_peaks.narrowPeak.bed') 
     output:
-        gvcf_gz = temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz'))
+        gvcf_gz = os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.g.vcf.gz')
     params:
         tmp = os.path.join(BOWTIE_DIR, 'tmp')
     threads: THREADS
     shell:
-        '{GATK} --java-options "-XX:ParallelGCThreads={threads}" HaplotypeCaller -R {GENOME} \
+        '{GATK} --java-options "-XX:ParallelGCThreads={threads}" HaplotypeCaller -R {GENOME_STAR} -L {input.interesting_region} -ip 1000 \
             -I {input.bam} -O {output.gvcf_gz} --tmp-dir {params.tmp} --native-pair-hmm-threads {threads} \
             -ERC GVCF'
 
@@ -107,7 +48,7 @@ rule gvcf2vcf:
         temp(os.path.join(BOWTIE_DIR, '{indiv}-RG-dedup-hapcal.filtered.recode.vcf'))
     shell:
         """
-        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME} > {output}
+        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME_STAR} > {output}
         """
 
 
@@ -154,5 +95,6 @@ rule call_genotype:
         "envs/env_py37.yml"
     shell:
         'vcf-to-tab < {input} > {output}'
+
 
 
