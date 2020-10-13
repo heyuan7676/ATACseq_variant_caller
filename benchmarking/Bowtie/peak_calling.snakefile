@@ -23,15 +23,3 @@ rule peak_calling:
         """
 
 
-'''Count the number of reads overlapping with the peaks'''
-rule reads_overlap:
-    input:
-        reads = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-clean.bam'),
-        peaks = os.path.join(PEAK_DIR, '{indiv}' + '_peaks.narrowPeak')
-    output:
-        os.path.join(PEAK_DIR, '{indiv}' + '.peaks.cnt.bed')
-    shell:
-        """
-        {BEDTOOLS} intersect -abam {input.reads} -b {input.peaks} -wo -bed | cut -d'	' -f13-16 | bedtools merge -c 4 -o count > {output}
-        """
-
