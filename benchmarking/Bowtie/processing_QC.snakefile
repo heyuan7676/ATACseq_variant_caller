@@ -25,7 +25,7 @@ rule build_vcf_index:
         "envs/env_py37.yml"
     threads: THREADS
     shell:
-        '{GATK} IndexFeatureFile -I {input} --java-options "-XX:ConcGCThreads={threads}"'
+        '{GATK} IndexFeatureFile -I {input}'
 
 
 rule add_rg:
@@ -34,12 +34,11 @@ rule add_rg:
     output:
         temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG.bam'))
     params:
-        tmp = os.path.join(BOWTIE_DIR, 'tmp/indiv'),
         label = '{indiv}',
         grid = '{indiv}',
         rgsm = '{indiv}'
     shell:
-        '{PICARD} AddOrReplaceReadGroups I={input}  O={output}  RGID={params.grid} RGLB={params.label} RGPL={RGPL} RGSM={params.rgsm} RGPU={RGPU} TMP_DIR={params.tmp}'
+        '{PICARD} AddOrReplaceReadGroups I={input}  O={output}  RGID={params.grid} RGLB={params.label} RGPL={RGPL} RGSM={params.rgsm} RGPU={RGPU} TMP_DIR={TMP_DIR}'
 
 rule mark_dup:
     input:
@@ -47,11 +46,9 @@ rule mark_dup:
     output:
         bam = temp(os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup.bam')),
         metric = os.path.join(BOWTIE_DIR, 'dedup_metrics', '{indiv}' + '.dedup.metrics')
-    params:
-        tmp = os.path.join(BOWTIE_DIR, 'tmp')
     threads: THREADS
     shell:
-        '{PICARD} MarkDuplicates INPUT= {input} OUTPUT= {output.bam} METRICS_FILE= {output.metric} TMP_DIR={params.tmp}'
+        '{PICARD} MarkDuplicates INPUT= {input} OUTPUT= {output.bam} METRICS_FILE= {output.metric} TMP_DIR={TMP_DIR}'
 
 
 rule remove_chrprefix:
@@ -74,13 +71,11 @@ rule build_bqsr_table:
         vcf_index = VCFFN + '.idx'
     output:
         table = temp(os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup.bqsr.table'))
-    params:
-        tmp = os.path.join(BOWTIE_DIR, 'tmp')
     conda:
         "envs/env_py37.yml"
     threads: THREADS
     shell:
-        '{GATK} BaseRecalibrator -R {input.genome} -I {input.bam} --known-sites {input.known_vcf} -O {output.table} --java-options "-XX:ConcGCThreads={threads}"'
+        '{GATK} BaseRecalibrator -R {input.genome} -I {input.bam} --known-sites {input.known_vcf} -O {output.table}'
 
 
 rule apply_bqsr:
@@ -92,7 +87,7 @@ rule apply_bqsr:
         bam = temp(os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-bqsr.bam')),
     threads: THREADS
     shell:
-        '{GATK} ApplyBQSR -R {input.genome} -I {input.bam} --bqsr-recal-file {input.table} -O {output.bam} --java-options "-XX:ConcGCThreads={threads}"'
+        '{GATK} ApplyBQSR -R {input.genome} -I {input.bam} --bqsr-recal-file {input.table} -O {output.bam}'
 
 
 rule clean_header:

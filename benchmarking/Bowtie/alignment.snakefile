@@ -38,13 +38,13 @@ rule index_sam:
 
 rule keep_autosomal_genome:
     input:
-        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam'),
-        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam.bai')
+        sam=os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam'),
+        sambai=os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam.bai')
     output:
         temp(os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam'))
     threads:
         THREADS
     shell:
-        '{SAMTOOLS} view -@ {threads} -b {input} chr{{1..22}} > {output}'
+        '{SAMTOOLS} view -@ {threads} -b {input.sam} chr{{1..22}} > {output}'
 
 

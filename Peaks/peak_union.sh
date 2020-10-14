@@ -51,3 +51,6 @@ do
 	bedtools intersect -abam ${bam_file} -b ${union_peaks} -wo -bed | cut -d'	' -f13-16 | sort | uniq -c | awk '{print $2,$3,$4,$5,$1}' | sort -k1,1n -k2,2n | sed 's/ /	/g' > ${sample}.count.unionPeaks.bed
 done
 
+rm union-peaks.chr*bed
+awk '{print >> "union-peaks.chr"$1".bed"}' union-peaks.bed 
+

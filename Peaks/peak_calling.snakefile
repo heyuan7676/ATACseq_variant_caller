@@ -1,11 +1,5 @@
 import os
 
-GENOME_DICT = '.'.join(GENOME_STAR.split('.')[:-1]) + '.dict'
-RGPL = 'illumina'
-RGPU = 'Unknown'
-
-'''Peak calling'''
-
 '''Call peaks using MACS2'''
 rule peak_calling:
     input:
