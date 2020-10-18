@@ -39,18 +39,5 @@ wc -l union-thresholded_level*
 
 # Use union-thresholded_level10.bed to count number of reads in each peak
 union_peaks=union-peaks.bed
-awk '{print $0,"Peak"NR}' union-thresholded_level${k}.bed | sed 's/ /	/g' > ${union_peaks}
-
-# Count the number of reads overlapping with the peaks
-ml bedtools
-for f in *_peaks.narrowPeak
-do
-        sample=${f/_peaks.narrowPeak/}
-	echo $sample
-	bam_file=../first_pass_bqsr/${sample}-clean.bam
-	bedtools intersect -abam ${bam_file} -b ${union_peaks} -wo -bed | cut -d'	' -f13-16 | sort | uniq -c | awk '{print $2,$3,$4,$5,$1}' | sort -k1,1n -k2,2n | sed 's/ /	/g' > ${sample}.count.unionPeaks.bed
-done
-
-rm union-peaks.chr*bed
-awk '{print >> "union-peaks.chr"$1".bed"}' union-peaks.bed 
+awk '{print "Peak"NR, $0}' union-thresholded_level${k}.bed | sed 's/ /	/g' > ${union_peaks}
 

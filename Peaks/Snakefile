@@ -39,14 +39,11 @@ THREADS = config['THREADS']
 minDP_arr = config['minDP_arr']
 
 ## These need to after the global variables in order to use them 
-include : 'alignment.snakefile'
-include : 'processing_QC.snakefile'
 include : 'peak_calling.snakefile'
-include : 'variant_calling.snakefile'
 
 
 
 ''' Snakemake rules '''
 rule all:
     input:
-        expand(os.path.join(GENOTYPE_DIR, '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt'), indiv = INDIVS, minDP = minDP_arr)
+        expand(os.path.join(PEAK_DIR, '{indiv}' + '_peaks.narrowPeak'), indiv = INDIVS)

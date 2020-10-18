@@ -31,5 +31,6 @@ done
 
 sort -k2,2n -k3,3n ${matrix_fn} >> ${header_fn}_temp
 mv ${header_fn}_temp ${matrix_fn}
+awk '{print >> "peak_by_sample_matrix_chr"$2".txt"}' ${matrix_fn}  
 
 rm *count*bed_temp
