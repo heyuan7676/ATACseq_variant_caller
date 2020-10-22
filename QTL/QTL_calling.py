@@ -9,9 +9,8 @@ from sklearn.linear_model import LinearRegression
 from statsmodels.regression import linear_model as sm
 
 
-def read_in_peaks():
-    peak_dat = pd.read_csv('%s/peak_by_sample_matrix_corrected_chr%d.txt' % (PEAK_DIR, CHROMOSOME),
-                          sep='\t')
+def read_in_peaks(PEAK_dir, chromosome):
+    peak_dat = pd.read_csv('%s/peak_by_sample_matrix_corrected_chr%d.txt' % (PEAK_dir, chromosome), sep='\t')
     samples = [x for x in peak_dat.columns if x.startswith('HG')]
     return [peak_dat, samples]
 
@@ -41,9 +40,9 @@ def obtain_numerical_gt(gt_dat, samples):
     gt_numerical_dat = []
     print('In total %d variants are called' % len(gt_dat))
     start = time.time()
-    gt_numerical_dat = map(convert_gt_to_number, np.array(gt_dat[samples]))
+    gt_numerical_dat = list(map(convert_gt_to_number, np.array(gt_dat[samples])))
     end = time.time()
-    print('Used %f s' % (end - start))
+    print('    Used %f s' % (end - start))
     
     gt_numerical_dat = pd.DataFrame(gt_numerical_dat)
 
@@ -62,24 +61,29 @@ def obtain_numerical_gt(gt_dat, samples):
     
 
 
-def readin_genotype():
+def readin_genotype(Genotype_dir, chromosome, samples, suffix):
     ## Read in Genotpye
-    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, CHROMOSOME), sep=' ')
+    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d%s.txt' % (Genotype_dir, chromosome, suffix), sep=' ')
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
+    gt_dat = gt_dat.replace('./.', '0')
     
     # match sample order in genotype matrix with the peak matrix
-    gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS'] + SAMPLES]
+    gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS'] + samples]
 
     # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(gt_dat[SAMPLES]) != '0', axis=1) >= 3)[0]
+    valid_snps = np.where(np.sum(np.array(gt_dat[samples]) != '0', axis=1) >= 3)[0]
     gt_dat = gt_dat.iloc[valid_snps].reset_index(drop=True)
     
     # remove rows with only one genotype
-    validQTLsnps = np.where([len(set(x))>2 for x in np.array(gt_dat[SAMPLES])])[0]
+    validQTLsnps = np.where([len(set(x))>2 for x in np.array(gt_dat[samples])])[0]
     gt_dat = gt_dat.iloc[validQTLsnps].reset_index(drop=True)
 
     print('Convert genotype to numerical values')
-    gt_numerical_dat = obtain_numerical_gt(gt_dat, SAMPLES)
+    gt_numerical_dat = obtain_numerical_gt(gt_dat, samples)
+
+    # again remove rows with only one genotype (ie. A/T and T/A)
+    validQTLsnps = np.where([len(set(x))>2 for x in np.array(gt_numerical_dat[samples])])[0]
+    gt_numerical_dat = gt_numerical_dat.iloc[validQTLsnps].reset_index(drop=True)
         
     return gt_numerical_dat
 
@@ -94,7 +98,7 @@ def achieve_ll(rowi):
     pl_scores = [x[x<10] for x in pl_scores]
 
     post_pp = [list(map(lambda x: 1/10 ** x, pl_s)) for pl_s in pl_scores]    
-    max_post_pp = [np.max(x/np.sum(x)) for x in post_pp]
+    max_post_pp = [np.max(np.array(x)/float(np.sum(x))) for x in post_pp]
     
     return max_post_pp
 
@@ -119,20 +123,20 @@ def derive_ll(info_dat, samples):
 
 
 
-def readin_genotype_info(gt_dat):
+def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples, suffix):
     ## Read in Genotpye INFO
-    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d.txt' % (VCF_dir, CHROMOSOME), sep=' ')
+    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d%s.txt' % (VCF_dir, chromosome, suffix), sep=' ')
     info_dat = info_dat[[x for x in info_dat.columns if 'Unnamed' not in x]]
     info_dat = info_dat.set_index('CHR_POS').loc[gt_dat['CHR_POS']].reset_index()
    
     # match sample order in genotype matrix with the peak matrix
-    info_dat = info_dat[['CHR_POS', 'CHR', 'POS'] + SAMPLES]
+    info_dat = info_dat[['CHR_POS', 'CHR', 'POS'] + samples]
  
     print('Derive posterior probability for the genotypes')
     start = time.time()
-    post_pp_dat = derive_ll(info_dat=info_dat, samples=SAMPLES)
+    post_pp_dat = derive_ll(info_dat=info_dat, samples=samples)
     end = time.time()
-    print('Used %f seconds' % (end - start))
+    print('    Used %f seconds' % (end - start))
         
     return post_pp_dat
 
@@ -163,60 +167,64 @@ def compute_QTL_gti_peaki(datapoint):
 
 
 
-def compute_QTL_peaki(peaki, gt_numerical_dat, post_pp_dat):
-
-    pdb.set_trace()
+def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
     QTL_result_peaki = []
     [start, end] = [peaki['START'], peaki['END']]
     
     SNPs_close = (np.array(gt_numerical_dat['POS']) < end + WINDOW) & (np.array(gt_numerical_dat['POS']) > start - WINDOW)
     SNPs_close = np.where(SNPs_close)[0]
-    
-    bb = np.array(gt_numerical_dat.iloc[SNPs_close][SAMPLES])
-    cc = np.array(post_pp_dat.iloc[SNPs_close][SAMPLES])
-    aa = np.repeat(np.array(peaki[SAMPLES])[np.newaxis], len(bb), axis=0)
+   
+    samples = [x for x in gt_numerical_dat.columns if x.startswith('HG')] 
+    bb = np.array(gt_numerical_dat.iloc[SNPs_close][samples])
+    cc = np.array(post_pp_dat.iloc[SNPs_close][samples])
+    aa = np.repeat(np.array(peaki[samples])[np.newaxis], len(bb), axis=0)
 
     datapoints = zip(aa,bb,cc)
-    pvalues = map(compute_QTL_gti_peaki, datapoints) 
-
+    pvalues = list(map(compute_QTL_gti_peaki, datapoints)) 
     QTL_result_peaki = pd.DataFrame({"PeakID": peaki['PEAK'], "CHR_POS": gt_numerical_dat.iloc[SNPs_close]['CHR_POS'], "P-value": pvalues})
+
     return QTL_result_peaki
 
 
 
-def compute_QTLs(WINDOW, peak_df, genotype_df, weight_df):
+def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, QTL_dir, suffix = '', saveSuffix = ''):
 
     QTL_results = pd.DataFrame()
+    print('Compute QTLs for %d peaks ...' % len(peak_df))
+    start = time.time()
     for p in range(len(peak_df)):
-        token = compute_QTL_peaki(peak_df.iloc[p], genotype_df, weight_df)
+        token = compute_QTL_peaki(WINDOW, peak_df.iloc[p], genotype_df, weight_df)
         QTL_results = QTL_results.append(token)
         if (p+1) % 500 == 0:
-            print('%d peaks finished' % p)
-        
-    QTL_results = [a for b in QTL_results for a in b]
-    QTL_results = np.reshape(np.array(QTL_results), [int(len(QTL_results)/3), 3])
-    QTL_dat = pd.DataFrame(QTL_results)
-    QTL_dat.columns = ['PeakID', 'CHR_POS', 'p-value']
-    QTL_dat['p-value'] = list(map(float, QTL_dat['p-value']))
-   
-    print('Tested %d associations for chromosome%d' % (len(QTL_dat), CHROMOSOME))
+            print('    %d peaks finished' % (p+1))
+    end = time.time()
+    print('Tested %d associations for chromosome%d' % (len(QTL_results), chromosome))
+    print('    Used %f miniutes' % ((end - start)/60))
     print("") 
-    #QTL_dat.to_csv('%s/CHR%d_acQTLs_WINDOW_%dkb.txt' % (QTL_dir, CHROMOSOME, WINDOW/1000), sep='\t', index = False)
+    QTL_results.to_csv('%s/CHR%d_acQTLs_WINDOW_%dkb%s%s.txt' % (QTL_dir, chromosome, WINDOW/1000, suffix, saveSuffix), sep='\t', index = False)
 
 
 if __name__ == "__main__":
     CHROMOSOME = int(sys.argv[1])
     WINDOW = int(sys.argv[2])
+    SUFFIX = sys.argv[3]
+    #SUFFIX = '_GQ1'
 
-    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks'
-    BAM_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/first_pass_bqsr'
+    PEAK_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks'
     Genotype_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Called_GT/'
     VCF_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files'
     QTL_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/QTLs'
 
-    [PEAK_DAT, SAMPLES] = read_in_peaks()
-    GT_DAT = readin_genotype()
-    WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT)
+    print('Call ac-QTLs for chromosome %d with window = %dkb' % (CHROMOSOME, WINDOW/1000))
 
-    compute_QTLs(WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT)
+    ## read in data
+    [PEAK_DAT, SAMPLES] = read_in_peaks(PEAK_dir, CHROMOSOME)
+    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
+    WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
+
+    ## compute QTLs
+    compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, suffix=SUFFIX)
+
+
+
 
