@@ -9,7 +9,8 @@ library(MatrixEQTL)
 
 args <- commandArgs(trailingOnly = TRUE)
 CHROMOSOME = args[1]
-cisDist = as.numeric(args[2])
+SUFFIX = args[2]
+cisDist = as.numeric(args[3])
 
 ## Settings
 
@@ -18,8 +19,8 @@ useModel = modelLINEAR; # modelANOVA, modelLINEAR, or modelLINEAR_CROSS
 
 # Genotype file name
 snp.dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Called_GT/'
-SNP_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,"_minDP2.txt", sep="");
-snps_location_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,"_minDP2_loc.bed", sep="");
+SNP_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,"_minDP2", SUFFIX,".txt", sep="");
+snps_location_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,"_minDP2_loc", SUFFIX,".bed", sep="");
 
 # Gene expression file name
 peak.dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks/'
@@ -32,8 +33,8 @@ covariates_file_name = paste(peak.dir, "PCs.txt", sep="");
 
 # Output file name
 qtl.dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/QTLs/'
-output_file_name_cis = paste(qtl.dir, "matrixeQTL_chromosome", CHROMOSOME,"minDP2_cisDist", as.character(cisDist/1000),"kb.txt", sep="");
-output_file_name_tra = paste(qtl.dir, "matrixeQTL_chromosome", CHROMOSOME,"minDP2_cisDist", as.character(cisDist/1000),"_trans_kb.txt", sep="");
+output_file_name_cis = paste(qtl.dir, "matrixeQTL_chromosome", CHROMOSOME,"minDP2_cisDist", as.character(cisDist/1000),"kb", SUFFIX,".txt", sep="");
+output_file_name_tra = paste(qtl.dir, "matrixeQTL_chromosome", CHROMOSOME,"minDP2_cisDist", as.character(cisDist/1000),"_trans_kb", SUFFIX, ".txt", sep="");
 
 # Only associations significant at this level will be saved
 pvOutputThreshold_cis = 1;
@@ -65,6 +66,9 @@ gene$fileSkipColumns = 1;       # one column of row labels
 gene$fileSliceSize = 2000;      # read file in slices of 2,000 rows
 gene$LoadFile(expression_file_name);
 
+idx = sapply(colnames(snps), function(x) grep(x, colnames(gene)))
+gene$ColumnSubsample(idx);
+
 ## Load covariates
 
 cvrt = SlicedData$new();
@@ -75,6 +79,9 @@ cvrt$fileSkipColumns = 1;       # one column of row labels
 if(length(covariates_file_name)>0) {
 cvrt$LoadFile(covariates_file_name);
 }
+
+idx = sapply(colnames(snps), function(x) grep(x, colnames(cvrt)))
+cvrt$ColumnSubsample(idx);
 
 ## Run the analysis
 snpspos = read.table(snps_location_file_name, header = TRUE, stringsAsFactors = FALSE);
@@ -97,9 +104,6 @@ cisDist = cisDist,
 pvalue.hist = "qqplot",
 min.pv.by.genesnp = FALSE,
 noFDRsaveMemory = FALSE);
-
-unlink(output_file_name_tra);
-unlink(output_file_name_cis);
 
 ## Results:
 
