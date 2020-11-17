@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=24:00:00
-#SBATCH --partition shared
+#SBATCH -p shared
 
 source activate snakemake
 #INDIV="$1" snakemake -s Snakefile --cores 24
@@ -20,11 +20,11 @@ ml bedtools
 
 
 ## Run multiple jobs in parallel
-snakemake --use-conda --jobs 20 \
-    --cluster "sbatch --ntasks=1 --time=12:00:00 --partition lrgmem" \
+snakemake --use-conda --jobs 40 \
+    --cluster "sbatch --ntasks=4 --time=24:00:00 --partition shared" \
     --rerun-incomplete \
     --keep-going \
-    --latency-wait 10 \
+    --latency-wait 5 \
     --printshellcmds \
     $@
 
