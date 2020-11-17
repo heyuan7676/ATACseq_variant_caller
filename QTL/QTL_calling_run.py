@@ -22,16 +22,27 @@ if __name__ == "__main__":
     WINDOW = int(sys.argv[2])
     useWeight = sys.argv[3]
 
+    alignment_dir = 'alignment_bowtie' # alignment_subsample_0.5
+    peak_calling = 'macs2'
     GT_subDir = 'minDP2'
-    SUFFIX = '_%s' % GT_subDir
-    PEAK_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks'
-
-    # root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_subsample_0.5'
-    root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
+    SUFFIX = '_%s' % GT_subDir
+
+    root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/%s' % alignment_dir
     VCF_dir = '%s/VCF_files' % root_dir
-    QTL_dir = '%s/QTLs/%s' % (root_dir, GT_subDir)
-    os.makedirs(QTL_dir, exist_ok = True)
+
+    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
+
+    if peak_calling == 'macs2':
+    	PEAK_dir = '%s/Peaks' % root_dir
+        QTL_dir = '%s/QTLs/%s' % (root_dir, GT_subDir)
+        os.makedirs(QTL_dir, exist_ok = True)
+
+    elif peak_calling == 'Genrich':
+        PEAK_dir = '%s/Peaks_Genrich' % root_dir
+        QTL_dir = '%s/QTLs_Genrich/%s' % (root_dir, GT_subDir)
+        os.makedirs(QTL_dir, exist_ok = True)
+
 
     print('Call ca-QTLs for chromosome %d with window = %dkb' % (CHROMOSOME, WINDOW/1000))
 
@@ -39,7 +50,6 @@ if __name__ == "__main__":
     [PEAK_DAT, SAMPLES_Peaks] = read_in_peaks(PEAK_dir, CHROMOSOME)
 
     ## align the samples with samples from WGS
-    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
     WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, '1k_genome_chr22')
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', nrows = 10)
     SAMPLES_WGS = [x for x in WGS_result.columns if x.startswith('HG')]
@@ -73,6 +83,5 @@ if __name__ == "__main__":
     WEIGHT_DAT[SAMPLES] = 1
 
     compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, WGS_DAT, WEIGHT_DAT, save_dir=save_dir, suffix=SUFFIX, saveSuffix='_realGT')
-
 
 
