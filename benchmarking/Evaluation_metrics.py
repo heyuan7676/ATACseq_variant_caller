@@ -29,7 +29,7 @@ def read_in_WGS_GT(sample):
                             usecols=[0,1,2,col_to_read])
         WGS_result = WGS_result.append(token)    
     WGS_result = WGS_result.drop_duplicates() 
-    print('done')
+    print("done\n")
     return WGS_result
 
 
@@ -61,10 +61,12 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
         SNP_called = SNP_called.iloc[np.where([len(x.split('/')[1]) == 1 for x in SNP_called['%s_called' % sample]])[0]]
         SNP_called = SNP_called.iloc[np.where([len(x.split('/')[1]) == 1 for x in SNP_called['%s_called' % sample]])[0]]
 
-    print('done')
+    print("done\n")
 
 
     print('Measure performance...')
+   
+    print('Among all variants')
     # variants with some read
     intersection_SNPs = WGS_result.merge(SNP_called, on=['#CHROM', 'POS'], how = 'left')
     assert len(intersection_SNPs) == len(WGS_result)
@@ -81,7 +83,7 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
 
     ### Among all tested, how many are recovered
     print('For %s:' % sample)
-    N = len(intersection_SNPs) - sum(intersection_SNPs['REF_y'].isnull())
+    N = sum(~intersection_SNPs['REF_y'].isnull())
     called_percentage = N/float(len(WGS_result))
     print("Among %d variants identified by WGS, %d (%.3f) are called by ATAC-seq reads" % (len(WGS_result), N, N/float(len(WGS_result))))
 
@@ -91,19 +93,23 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
 
     recovered = [len(WGS_result), N, true_hits, called_percentage, called_correct_percentage]
 
+    print('Among tested variants')
     ### Among the tested variants, evaluate the performance
-    intersection_SNPs = intersection_SNPs[not intersection_SNPs['REF_y'].isnull()]
-    confusion_matrix = obtain_confusion_matrix(intersection_SNPs)
+    intersection_SNPs = intersection_SNPs[~intersection_SNPs['REF_y'].isnull()]
+    confusion_matrix = obtain_confusion_matrix(intersection_SNPs, sample)
 
-    sensitivity_arr = np.diag(np.array(confusion_matrix) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3]))
-    specificity_arr = np.diag(np.array(confusion_matrix) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3]))
+    sensitivity_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3])).ravel()
+    specificity_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3])).ravel()
     performance = list(sensitivity_arr) + list(specificity_arr)
+    print(performance)
+    print("done\n")
 
     return [sample, minDP] + recovered + performance
 
 
 
-def obtain_confusion_matrix(intersection_df):
+def obtain_confusion_matrix(intersection_df, sample):
+    intersection_df = intersection_df.copy()
     intersection_df['Alt1'] = [x.split('/')[0] for x in intersection_df[sample]]
     intersection_df['Alt2'] = [x.split('/')[1] for x in intersection_df[sample]]
     intersection_df['MT']= (intersection_df['Alt1'] != intersection_df['REF_x']) & (intersection_df['Alt2'] != intersection_df['REF_x'])
