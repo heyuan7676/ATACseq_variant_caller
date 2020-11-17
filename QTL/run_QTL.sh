@@ -1,8 +1,11 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --ntasks=2
-#SBATCH --time=24:00:00
-#SBATCH --partition shared
+#SBATCH --ntasks=3
+#SBATCH --time=6:00:00
+#SBATCH -p shared
 
 ml python/2.7
-python QTL_calling.py "$1" "$2" "$3"
+
+chromosome="$1"
+python QTL_calling_run.py ${chromosome} 0 True
+python QTL_calling_run.py ${chromosome} 0 False

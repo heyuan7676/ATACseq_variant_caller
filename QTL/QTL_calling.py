@@ -17,9 +17,6 @@ from scipy import stats
 
 
 def compute_QTL_gti_peaki(datapoint):
-    #gt_sample = np.array(gt_numerical_dat[samples].iloc[0])
-    #peak_sample = np.array(RPKM_dat[samples].iloc[0])
-    #weight_sample = np.array(post_pp_dat[samples].iloc[0])
 
     [peak_sample, gt_sample, weight_sample] = datapoint
     valid_samples = np.where(gt_sample!= -1)[0]

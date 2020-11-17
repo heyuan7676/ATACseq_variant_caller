@@ -9,7 +9,6 @@ from sklearn.linear_model import LinearRegression
 from statsmodels.regression import linear_model as sm
 from prepare_data_matrix import *
 from QTL_calling import *
-from QTL_calling_WGS import *
 
 def read_in_peaks(PEAK_dir, chromosome):
     peak_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM_corrected_chromosome%d.txt' % (PEAK_dir, chromosome), sep='\t')
@@ -25,23 +24,23 @@ if __name__ == "__main__":
     alignment_dir = 'alignment_bowtie' # alignment_subsample_0.5
     peak_calling = 'macs2'
     GT_subDir = 'minDP2'
-    Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
     SUFFIX = '_%s' % GT_subDir
 
     root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/%s' % alignment_dir
     VCF_dir = '%s/VCF_files' % root_dir
+    Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
 
     WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
 
     if peak_calling == 'macs2':
     	PEAK_dir = '%s/Peaks' % root_dir
         QTL_dir = '%s/QTLs/%s' % (root_dir, GT_subDir)
-        os.makedirs(QTL_dir, exist_ok = True)
+        os.makedirs(QTL_dir)
 
     elif peak_calling == 'Genrich':
         PEAK_dir = '%s/Peaks_Genrich' % root_dir
         QTL_dir = '%s/QTLs_Genrich/%s' % (root_dir, GT_subDir)
-        os.makedirs(QTL_dir, exist_ok = True)
+        os.makedirs(QTL_dir)
 
 
     print('Call ca-QTLs for chromosome %d with window = %dkb' % (CHROMOSOME, WINDOW/1000))
