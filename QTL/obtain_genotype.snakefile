@@ -12,7 +12,6 @@ GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
 
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
 INDIVS = INDIVS[0]
-INDIVS = INDIVS[:1]
 CHROM = config['CHROM']
 
 minDP_arr = config['minDP_arr']
@@ -21,7 +20,7 @@ minDP_arr = config['minDP_arr']
 
 rule all:
     input:
-        os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'),
+        expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),
         expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM, minDP = minDP_arr),
         expand(os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
 
@@ -39,10 +38,10 @@ rule collect_gt_each:
 
 rule union_set_SNPs:
     input:
-        expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_temp"), indiv = INDIVS)
+        expand(os.path.join(GENOTYPE_DIR, "minDP{{minDP}}","{indiv}.filtered.genotype.txt_temp"), indiv = INDIVS)
     output:
-        fn1 = temp(os.path.join(GENOTYPE_DIR,  "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed_temp')),
-        fn2 = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed')
+        fn1 = temp(os.path.join(GENOTYPE_DIR,  "minDP{minDP}", "union-SNPs_minDP{minDP}.bed_temp")),
+        fn2 = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", "union-SNPs_minDP{minDP}.bed")
     shell:
         """
         rm -f {output.fn1}
@@ -68,7 +67,7 @@ rule collect_genotype_union:
 
 rule obtain_matrix:
     input:
-        gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_matrix"),
+        gt = expand(os.path.join(GENOTYPE_DIR, "minDP{{minDP}}","{indiv}.filtered.genotype.txt_matrix"), indiv = INDIVS),
         snps = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed')
     output:
         bychr = os.path.join(GENOTYPE_DIR, "minDP{minDP}", "gt_by_sample_matrix_chr{chr}.txt")
