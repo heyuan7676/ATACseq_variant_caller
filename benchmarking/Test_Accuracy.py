@@ -1,9 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -25,8 +20,6 @@ sns.set_style('whitegrid')
 
 from scipy.stats import ranksums
 
-
-# In[52]:
 
 
 discover_number = []
@@ -54,7 +47,6 @@ precision_df = pd.DataFrame(precision_matric)
 precision_df.columns = ['Sens_AA','Sens_AB','Sens_BB','Spec_AA', 'Spec_AB', 'Spec_BB', 'minDP', 'sample']
 
 
-# In[51]:
 
 
 plt.figure(figsize = (25,4))
@@ -82,13 +74,6 @@ plt.show()
 plt.close()
 
 
-# In[ ]:
-
-
-
-
-
-# In[66]:
 
 
 discover_number = []
@@ -114,7 +99,6 @@ precision_df.columns = ['Sens_AA','Sens_AB','Sens_BB','Spec_AA', 'Spec_AB', 'Spe
 precision_df
 
 
-# In[67]:
 
 
 plt.figure(figsize = (25,4))
@@ -142,7 +126,6 @@ plt.show()
 plt.close()
 
 
-# In[ ]:
 
 
 
