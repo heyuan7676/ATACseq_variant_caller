@@ -4,9 +4,6 @@ import os
 import pdb
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import PCA
-from sklearn.linear_model import LinearRegression
-from statsmodels.regression import linear_model as sm
 
 
 def read_in_peaks(PEAK_dir):
@@ -142,31 +139,6 @@ def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples, suffix):
     return post_pp_dat
 
 
-#### Compute QTL
-
-# Genotype data: gt_numerical_dat
-# Peak data: RPKM_dat
-# Genotype data weights: post_pp_dat
-
-
-def compute_QTL_gti_peaki(datapoint):
-    #gt_sample = np.array(gt_numerical_dat[samples].iloc[0])
-    #peak_sample = np.array(RPKM_dat[samples].iloc[0])
-    #weight_sample = np.array(post_pp_dat[samples].iloc[0])
-
-    [peak_sample, gt_sample, weight_sample] = datapoint
-    valid_samples = np.where(gt_sample!= -1)[0]
-    
-    y = np.array(peak_sample[valid_samples])
-    x = np.array(gt_sample[valid_samples])
-    x_weights = np.array(weight_sample[valid_samples])
-    
-    wls_model = sm.WLS(y, x, weights = x_weights)
-    results = wls_model.fit()
-
-    return results.f_pvalue
-
-
 def read_in_WGS_GT(samples, snps = None):
     WGS_fn = '%s/1k_genome_chr%d.genotypes.tsv' % (WGS_dir, CHROMOSOME)
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t')
@@ -194,6 +166,7 @@ def read_in_WGS_GT(samples, snps = None):
 if __name__ == "__main__":
     CHROMOSOME = int(sys.argv[1])
     #SUFFIX = sys.argv[2]
+    GT_DIR = 'minDP2'
     SUFFIX = '_minDP2'
     #SUFFIX = '_GQ1'
 
@@ -202,7 +175,7 @@ if __name__ == "__main__":
 
     # root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_subsample_0.5'
     root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
-    Genotype_dir = '%s/Called_GT/' % root_dir
+    Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_DIR)
     VCF_dir = '%s/VCF_files' % root_dir
     QTL_dir = '%s/QTLs' % root_dir
     #os.makedirs(QTL_dir, exist_ok = True)
@@ -210,22 +183,30 @@ if __name__ == "__main__":
     ## read in data
     SAMPLES = read_in_peaks(PEAK_dir)
     GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
-    GT_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s.txt' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    GT_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc.bed' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
-
     WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
-    WEIGHT_DAT[SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_weights.txt' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t')
 
     WGS_dat = read_in_WGS_GT(SAMPLES, GT_DAT['CHR_POS'])
     SAMPLES = list(np.intersect1d(SAMPLES, WGS_dat.columns))
     WGS_DAT = obtain_numerical_gt(WGS_dat, SAMPLES)
-    WGS_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT.txt' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    WGS_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT.bed' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
 
-    WGS_dat = read_in_WGS_GT(SAMPLES)
-    WGS_DAT = obtain_numerical_gt(WGS_dat, SAMPLES)
-    WGS_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT_all.txt' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    WGS_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT_all.bed' % (Genotype_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+    WGS_dat_all = read_in_WGS_GT(SAMPLES)
+    WGS_DAT_all = obtain_numerical_gt(WGS_dat_all, SAMPLES)
+
+
+    save_matrix = False
+    if save_matrix:
+        save_dir = os.path.join(Genotype_dir, 'Save_Matrix')
+	os.makedirs(save_dir, exist_ok = True)
+    	GT_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+    	GT_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+
+    	WEIGHT_DAT[SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_weights.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t')
+
+    	WGS_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+    	WGS_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+
+    	WGS_DAT_all[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT_all.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+    	WGS_DAT_all[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT_all.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
 
     
 
