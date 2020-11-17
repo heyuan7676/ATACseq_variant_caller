@@ -46,26 +46,30 @@ rule gvcf2vcf:
     input:
         os.path.join(VCF_DIR, '{indiv}.filtered.gvcf.recode.vcf')
     output:
-        temp(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf'))
+        vcf=os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf'),
+        info=os.path.join(VCF_DIR, '{indiv}.filtered.recode.INFO.vcf')
     shell:
         """
-        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME_STAR} > {output}
+        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME_STAR} > {output.vcf}
+        {BCFTOOLS} query -f '%CHROM\t%POS\t[%DP\t%PL\t%GQ]\n' {output.vcf} > {output.info}
+        """
+
+rule format_info:
+    input:
+        os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf")
+    output:
+        fn1=temp(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf_t")),
+        fn2=os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf")
+    shell:
+        """
+        awk "{{if((\$3>1)) print \$0}}" {input} > {output.fn1}
+        paste -d"_" <(awk "{{print \$1}}" {output.fn1}) <(awk "{{print \$2,\$4}}" {output.fn1}) | sed "1d" | sort -k1,1 -k2,2 > {output.fn2}
         """
 
 
-#rule filterVCF_1k_variants:
-#    input:
-#        os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf')
-#    output:
-#        os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf'),
-#        os.path.join(VCF_DIR, '{indiv}.filtered.recode.INFO.txt')
-#    params:
-#        prefix = os.path.join(VCF_DIR, '{indiv}.filtered')
-#    shell:
-#        """
-#        {VCFTOOLS} --vcf {input} --out {params.prefix} --positions {oneK_variants_locations} --recode
-#        {BCFTOOLS} query -f '%CHROM\t%POS\t[%DP\t%PL\t%GQ]\n' {params.prefix}.recode.vcf > {params.prefix}.recode.INFO.txt
-#        """
+'''
+Filter variants
+'''
 
 
 rule filterVCF_minDP:
@@ -81,6 +85,20 @@ rule filterVCF_minDP:
         {VCFTOOLS} --vcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
         """
 
+rule filterVCF_GQ:
+    input:
+        os.path.join(VCF_DIR ,'{indiv}' + '.filtered.recode.vcf')
+    output:
+        temp(os.path.join(VCF_DIR, '{indiv}' + '.filtered.GQ' + '{GQ}' + '.recode.vcf'))
+    params:
+        minimumgq = '{GQ}',
+        prefix = os.path.join(VCF_DIR,'{indiv}' + '.filtered.GQ' + '{GQ}')
+    shell:
+        """
+        {VCFTOOLS} --vcf {input} --minGQ {params.minimumgq} --recode --recode-INFO-all --out {params.prefix}
+        """
+
+
 
 '''
 Call genotypes
@@ -90,11 +108,16 @@ rule call_genotype:
     input:
         os.path.join(VCF_DIR, '{indiv}.filtered.minDP' + '{minDP}' + '.recode.vcf')
     output:
-        os.path.join(GENOTYPE_DIR, '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt')
-    conda:
-        "envs/env_py37.yml"
+        os.path.join(GENOTYPE_DIR, 'minDP{minDP}', '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt')
     shell:
         'vcf-to-tab < {input} > {output}'
 
 
+rule call_genotype_GQ:
+    input:
+        os.path.join(VCF_DIR, '{indiv}.filtered.GQ' + '{GQ}' + '.recode.vcf')
+    output:
+        os.path.join(GENOTYPE_DIR, 'GQ{GQ}', '{indiv}.filtered.genotype.GQ' + '{GQ}' + '.txt')
+    shell:
+        'vcf-to-tab < {input} > {output}'
 
