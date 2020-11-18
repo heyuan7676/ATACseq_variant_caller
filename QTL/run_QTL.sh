@@ -10,9 +10,6 @@ chromosome="$1"
 
 for peak_calling in macs2 Genrich
 do
-	for useWeight in True False
-	do
-		python QTL_calling_run.py ${chromosome} 0 ${peak_calling} ${useWeight}
-	done
+	python QTL_calling_run.py ${chromosome} 0 ${peak_calling}
 done
 

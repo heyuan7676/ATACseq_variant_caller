@@ -54,7 +54,7 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
 
 
 
-def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, suffix = '', saveSuffix = ''):
+def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, saveSuffix = ''):
 
     QTL_results = pd.DataFrame()
     print('Compute QTLs for %d peaks ...' % len(peak_df))
@@ -69,6 +69,6 @@ def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, 
     print('    Used %f miniutes' % ((end - start)/60))
     print("") 
     QTL_results = QTL_results.sort_values('P-value')
-    QTL_results.to_csv('%s/CHR%d_acQTLs_WINDOW_%dkb%s%s.txt' % (save_dir, chromosome, WINDOW/1000, suffix, saveSuffix), sep='\t', index = False)
+    QTL_results.to_csv('%s/CHR%d_caQTLs_WINDOW_%dkb%s.txt' % (save_dir, chromosome, WINDOW/1000, saveSuffix), sep='\t', index = False)
 
 
