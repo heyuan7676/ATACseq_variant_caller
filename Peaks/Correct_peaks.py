@@ -9,9 +9,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 import scipy.stats as stats
 
+import pdb
 
-
-def compute_RPKM(peaks, bam_stats, samples):
+def compute_RPKM(peaks, bam_stats, samples, peak_dir):
     '''
     Compute RPKM (Reads per kilo base per million mapped reads)
     '''
@@ -31,32 +31,33 @@ def compute_RPKM(peaks, bam_stats, samples):
     RPKM_dat['END'] = np.array(peaks['END'])
     RPKM_dat['PEAK'] = np.array(peaks['PEAK'])
     RPKM_dat = RPKM_dat[['PEAK', 'CHR', 'START', 'END']  + samples]
-    RPKM_dat.to_csv('%s/peak_by_sample_matrix_RPKM.txt' % (PEAK_DIR), sep=' ', index = False)
+    RPKM_dat.to_csv('%s/peak_by_sample_matrix_RPKM.txt' % (peak_dir), sep=' ', index = False)
     
     return RPKM_dat
 
 
-def read_in_peaks(permute = False):
-    bam_stats = pd.read_csv('%s/bam_stats.txt' % BAM_DIR, sep='\t', header=None)
+def read_in_peaks(bam_dir, peak_dir, permute):
+    bam_stats = pd.read_csv('%s/bam_stats.txt' % bam_dir, sep='\t', header=None)
     bam_stats.columns=['Sample', 'Reads']
 
     try:
-        RPKM_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM.txt' % (PEAK_DIR), sep=' ')
+        RPKM_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM.txt' % (peak_dir), sep=' ')
         samples = [x for x in RPKM_dat.columns if x.startswith('HG')]
+        print('Read in RPKM')
                 
     except:
         print('Read in Peak and convert to RPKM')
         # Peaks
         peaks = pd.DataFrame()
         for CHROMOSOME in range(1,23):
-            peaks_chr = pd.read_csv('%s/peak_by_sample_matrix_chr%d.txt' % (PEAK_DIR, CHROMOSOME), sep=' ')
+            peaks_chr = pd.read_csv('%s/peak_by_sample_matrix_chr%d.txt' % (peak_dir, CHROMOSOME), sep=' ')
             peaks_chr = peaks_chr[[x for x in peaks_chr.columns if 'Unnamed' not in x]]
             peaks = peaks.append(peaks_chr)
             
         samples = [x for x in peaks.columns if x.startswith('HG')]
 
         # sample read depth
-        RPKM_dat = compute_RPKM(peaks,bam_stats,samples)
+        RPKM_dat = compute_RPKM(peaks,bam_stats,samples, peak_dir)
         
     RPKM_dat_counts = RPKM_dat[samples]
     
@@ -146,14 +147,15 @@ def inverse_normal_transform(M):
     return Q
 
 
-def remove_PCs(df, PCA_k = 10):
+def remove_PCs(df, samples, PCA_k = 10):
 
+    df_values = df[samples]
     pca = PCA(n_components=50)
-    pca.fit(df.transpose()) 
-    pcs = pca.transform(df.transpose())
+    pca.fit(df_values.transpose()) 
+    pcs = pca.transform(df_values.transpose())
     
-    reg = LinearRegression().fit(pcs[:, :PCA_k], df.transpose())
-    dat = df - np.dot(reg.coef_, pcs[:, :PCA_k].transpose())
+    reg = LinearRegression().fit(pcs[:, :PCA_k], df_values.transpose())
+    dat = df_values - np.dot(reg.coef_, pcs[:, :PCA_k].transpose())
 
     for col in ['PEAK','CHR', 'START', 'END']:
         dat[col] = df[col]
@@ -163,13 +165,14 @@ def remove_PCs(df, PCA_k = 10):
 
 if __name__ == '__main__':
 
-    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks/'
+    #PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks/'
+    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/'
     BAM_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/first_pass_bqsr'
 
-    [centered_data, bam_DF, samples] = read_in_peaks(permute = False)
-    [corrected_data, pca_model] = remove_PCs(centered_dat = centered_data[samples], PCA_k=10)
+    [centered_data, bam_DF, samples] = read_in_peaks(BAM_DIR, PEAK_DIR, permute = False)
+    [corrected_data, pca_model] = remove_PCs(centered_data, samples, PCA_k=12)
 
-    for i in range(22,23):
+    for i in range(1,23):
         df_save = corrected_data[corrected_data['CHR'] == i]
         df_save.to_csv('%s/peak_by_sample_matrix_RPKM_corrected_chromosome%d.txt' % (PEAK_DIR, i), sep='\t', index = False)
         #df_save[['PEAK'] + samples].to_csv('%s/peak_by_sample_matrix_RPKM_corrected_chromosome%d_values.txt' % (PEAK_DIR, i), sep='\t', index = False)
