@@ -34,6 +34,10 @@ if __name__ == "__main__":
     	PEAK_dir = '%s/Peaks' % root_dir
         QTL_dir = '%s/QTLs/%s' % (root_dir, GT_subDir)
 
+    if peak_calling == 'macs2_combined':
+        PEAK_dir = '%s/Peaks/combined' % root_dir
+        QTL_dir = '%s/QTLs_combined/%s' % (root_dir, GT_subDir)
+
     elif peak_calling == 'Genrich':
         PEAK_dir = '%s/Peaks_Genrich' % root_dir
         QTL_dir = '%s/QTLs_Genrich/%s' % (root_dir, GT_subDir)
