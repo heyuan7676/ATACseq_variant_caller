@@ -46,7 +46,7 @@ if __name__ == "__main__":
         os.makedirs(QTL_dir)
 
 
-    print('Call ca-QTLs for chromosome %d with window = %dkb' % (CHROMOSOME, WINDOW/1000))
+    print('Call ca-QTLs for chromosome %d with window = %fkb' % (CHROMOSOME, str(WINDOW/1000.0)))
 
     ## read in data
     [PEAK_DAT, SAMPLES_Peaks] = read_in_peaks(PEAK_dir, CHROMOSOME)

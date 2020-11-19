@@ -85,8 +85,8 @@ if __name__ == '__main__':
     
     alpha = 0.05
     for suffix in ['', '_noWeight']:
-        captured_QTLs = readin_QTL_results(QTL_dir, VCF_dir, SAMPLEs, WINDOW, suffix = '')
-        obtain_performance(captured_QTLs, alpha, '%s/%s_%s%s.txt' % (save_dir, peak_calling, GT_subDir, suffix))
+        captured_QTLs = readin_QTL_results(QTL_dir, VCF_dir, SAMPLEs, WINDOW, suffix = suffix)
+        obtain_performance(captured_QTLs, alpha, '%s/%s_%s_%fkb%s.txt' % (save_dir, peak_calling, GT_subDir, str(WINDOW/1000.0), suffix))
 
 
 
