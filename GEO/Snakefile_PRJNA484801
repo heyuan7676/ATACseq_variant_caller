@@ -1,0 +1,69 @@
+import os
+
+configfile: 'config.yaml'
+
+'''Load from config file'''
+
+PREFETCH = config['PREFETCH']
+FADUMP = config['FADUMP']
+PICARD = config['PICARD']
+GATK = config['GATK']
+SAMTOOLS = config['SAMTOOLS']
+BCFTOOLS = config['BCFTOOLS']
+VCFTOOLS = config['VCFTOOLS']
+BEDTOOLS = config['BEDTOOLS']
+MACS2 = config['MACS2']
+
+DIR = config['DIR']
+
+INDIVS = []
+fn = open('SraRunTables/PRJNA484801.csv', 'r')
+for line in fn.readlines():
+    line = line.rstrip()
+    if 'no_treament' in line:
+        INDIVS.append(line.split(',')[0])
+
+INDIVS = INDIVS[:1]
+
+FQ_DIR = config['FQ_DIR']
+BOWTIE_DIR = config['BOWTIE_DIR']
+DIR_FIRST_PASS = os.path.join(BOWTIE_DIR, 'first_pass_bqsr')
+PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
+VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files') 
+GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
+TMP_DIR = config['TMP_DIR']
+
+
+os.makedirs(FQ_DIR, exist_ok = True)
+os.makedirs(BOWTIE_DIR, exist_ok = True)
+os.makedirs(DIR_FIRST_PASS, exist_ok = True)
+os.makedirs(PEAK_DIR, exist_ok = True)
+os.makedirs(VCF_DIR, exist_ok = True)
+os.makedirs(GENOTYPE_DIR, exist_ok = True)
+
+# Bowtie 2 genome
+BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
+SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
+
+GENOME = config['GENOME']
+GENOME_STAR = config['GENOME_STAR']
+VCFFN = config['VCFFN']
+
+THREADS = config['THREADS']
+minDP_arr = config['minDP_arr']
+GQ_arr = config['GQ_arr']
+
+## These need to after the global variables in order to use them 
+include : 'download.snakefile'
+include : 'alignment.snakefile'
+include : '../scripts/processing_QC.snakefile'
+include : '../scripts/variant_calling.snakefile'
+
+
+
+''' Snakemake rules '''
+rule all:
+    input:
+        expand(os.path.join(BOWTIE_DIR, '{indiv}' + '.bowtie2.grch38.sam'), indiv = INDIVS)
+        #expand(os.path.join(GENOTYPE_DIR, 'minDP{minDP}', '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt'), indiv = INDIVS, minDP = minDP_arr),
+        #expand(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf"), indiv = INDIVS)
