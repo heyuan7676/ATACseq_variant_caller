@@ -16,7 +16,7 @@ tabix -p vcf ${VCF} # index compressed vcf
 mkdir -p ${sample}
 tabix -H ${VCF} > ${sample}/${VCF}_header.txt
 rm -f ${sample}/${sample}_chr*
-for chromosome in {22..22}
+for chromosome in {1..22}
 do
 	outfn=${sample}/${sample}_chr${chromosome}.vcf
 	cat ${sample}/${VCF}_header.txt > ${outfn}
@@ -24,9 +24,14 @@ do
 done
 
 cd ${sample}
-for chromosome in {22..22}
+for chromosome in {1..22}
 do
 	outfn=${sample}_chr${chromosome}.vcf
+	bgzip ${outfn}
+        tabix -p vcf ${outfn}.gz
+	bcftools annotate -x INFO ${outfn}.gz |  bcftools annotate -x FORMAT > temp
+	rm ${outfn}.gz*
+	mv temp ${outfn}
 	bgzip ${outfn}
 	tabix -p vcf ${outfn}.gz
 done
