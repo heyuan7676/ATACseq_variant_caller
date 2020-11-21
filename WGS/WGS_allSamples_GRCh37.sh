@@ -10,7 +10,7 @@ onek_genome_dir=/work-zfs/abattle4/lab_data/1k_genomes
 # cd ${onek_genome_dir}
 # bash merge_VCF.sh
 
-root_dir=/work-zfs/abattle4/heyuan/Variant_calling/benchmarking/datasets/GBR/
+root_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/
 mkdir -p ${root_dir}/Genotype
 ml vcftools
 ml bcftools

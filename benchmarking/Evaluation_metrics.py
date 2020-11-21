@@ -6,12 +6,17 @@ import pandas as pd
 from scipy.stats import ranksums
 
 
-def read_in_WGS_GT(sample):
+def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     print('Read in WGS data...')
     WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
 
     chromosome = 22
-    WGS_fn = '%s/1k_genome_chr%d.genotypes.tsv' % (WGS_dir, chromosome)
+    if assembly == 'GRCh38':
+        suffix = 'genotypes.tsv'
+    elif assembly == 'GRCh37':
+        suffix = 'GRCh37.genotypes.tsv'
+
+    WGS_fn = '%s/1k_genome_chr%d.%s' % (WGS_dir, chromosome, suffix)
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', nrows = 10)
     try:
         col_to_read = list(WGS_result.columns).index(sample)
@@ -21,8 +26,8 @@ def read_in_WGS_GT(sample):
     
     WGS_result = pd.DataFrame()
 
-    for chromosome in range(1,23):
-        WGS_fn = '%s/1k_genome_chr%d.genotypes.tsv' % (WGS_dir, chromosome)
+    for chromosome in range(1,2):
+        WGS_fn = '%s/1k_genome_chr%d.%s' % (WGS_dir, chromosome, suffix)
         token = pd.read_csv(WGS_fn, 
                             comment = '$', 
                             sep='\t', 
@@ -33,14 +38,19 @@ def read_in_WGS_GT(sample):
     return WGS_result
 
 
-def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, return_df = True):
+def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_df = True, Imputed = False, minDP = 2):
 
     print('Read in genotype data called from ATAC-seq reads...')
     WGS_result = WGS_result.copy()
 
-    SNP_calling_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Called_GT/minDP%d' % minDP
+    root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
+    if Imputed:
+        SNP_calling_dir = '%s/Imputation/%s' % (root_dir, sample)
+        SNP_called_fn = '%s/%s.imputed.genotype.txt' % (SNP_calling_dir, sample)
+    else:
+        SNP_calling_dir = '%s/Called_GT/minDP%d' % (root_dir, minDP)
+        SNP_called_fn = '%s/%s.filtered.genotype.minDP%d.txt' % (SNP_calling_dir, sample, minDP)
 
-    SNP_called_fn = '%s/%s.filtered.genotype.minDP%d.txt' % (SNP_calling_dir, sample, minDP)
     SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', nrows = 10)
     try:
         col_to_read = np.where([sample in x for x in SNP_called.columns])[0][0]
@@ -68,8 +78,9 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
    
     print('Among all variants')
     # variants with some read
+    SNP_called = SNP_called.drop_duplicates()
     intersection_SNPs = WGS_result.merge(SNP_called, on=['#CHROM', 'POS'], how = 'left')
-    assert len(intersection_SNPs) == len(WGS_result)
+    #assert len(intersection_SNPs) == len(WGS_result)
     intersection_SNPs.loc[intersection_SNPs['%s_called' % sample].isnull(),'%s_called' % sample] = 'N/N'
 
     # match for the HT order
@@ -82,14 +93,12 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
 
 
     ### Among all tested, how many are recovered
-    print('For %s:' % sample)
     N = sum(~intersection_SNPs['REF_y'].isnull())
     called_percentage = N/float(len(WGS_result))
-    print("Among %d variants identified by WGS, %d (%.3f) are called by ATAC-seq reads" % (len(WGS_result), N, N/float(len(WGS_result))))
 
     true_hits = np.sum(intersection_SNPs[sample] == intersection_SNPs['%s_called' % sample])
     called_correct_percentage = true_hits / float(len(WGS_result))
-    print("   %d (%.3f) are correct\n" % (true_hits, true_hits / float(len(WGS_result))))
+    print("Among %d variants identified by WGS, %d (%.3f) are called by ATAC-seq reads, %d (%.3f) are correct" % (len(WGS_result), N, N/float(len(WGS_result)), true_hits, true_hits / float(len(WGS_result))))
 
     recovered = [len(WGS_result), N, true_hits, called_percentage, called_correct_percentage]
 
@@ -98,13 +107,17 @@ def obtain_atac_variants_df(sample, minDP, WGS_result, restrict_to_SNP = True, r
     intersection_SNPs = intersection_SNPs[~intersection_SNPs['REF_y'].isnull()]
     confusion_matrix = obtain_confusion_matrix(intersection_SNPs, sample)
 
-    sensitivity_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3])).ravel()
-    specificity_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3])).ravel()
-    performance = list(sensitivity_arr) + list(specificity_arr)
+    recall_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3])).ravel()
+    precision_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3])).ravel()
+    performance = list(recall_arr) + list(precision_arr)
     print(performance)
     print("done\n")
+    print("================================================\n")
 
-    return [sample, minDP] + recovered + performance
+    if Imputed:
+        return [sample] + recovered + performance
+    else:
+        return [sample, minDP] + recovered + performance
 
 
 
