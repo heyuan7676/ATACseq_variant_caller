@@ -26,7 +26,7 @@ def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     
     WGS_result = pd.DataFrame()
 
-    for chromosome in range(1,2):
+    for chromosome in range(1,23):
         WGS_fn = '%s/1k_genome_chr%d.%s' % (WGS_dir, chromosome, suffix)
         token = pd.read_csv(WGS_fn, 
                             comment = '$', 
@@ -38,7 +38,7 @@ def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     return WGS_result
 
 
-def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_df = True, Imputed = False, minDP = 2):
+def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_df = True, Imputed = False, minDP = 2, return_metric = True):
 
     print('Read in genotype data called from ATAC-seq reads...')
     WGS_result = WGS_result.copy()
@@ -46,7 +46,7 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
     root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
     if Imputed:
         SNP_calling_dir = '%s/Imputation/%s' % (root_dir, sample)
-        SNP_called_fn = '%s/%s.imputed.genotype.txt' % (SNP_calling_dir, sample)
+        SNP_called_fn = '%s/%s.imputed.genotype.GRCh38.txt' % (SNP_calling_dir, sample)
     else:
         SNP_calling_dir = '%s/Called_GT/minDP%d' % (root_dir, minDP)
         SNP_called_fn = '%s/%s.filtered.genotype.minDP%d.txt' % (SNP_calling_dir, sample, minDP)
@@ -92,20 +92,28 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
     intersection_SNPs.loc[need_to_flip,sample] = intersection_SNPs.loc[need_to_flip,'%s_makeup' % sample]
 
 
+    if return_metric:
+        return compute_metric(intersection_SNPs, Imputed = Imputed)
+    else:
+        return intersection_SNPs
+
+
+
+def compute_metric(dat_all_genotypes, Imputed = False):
     ### Among all tested, how many are recovered
-    N = sum(~intersection_SNPs['REF_y'].isnull())
-    called_percentage = N/float(len(WGS_result))
+    N = sum(~dat_all_genotypes['REF_y'].isnull())
+    called_percentage = N/float(len(dat_all_genotypes))
 
-    true_hits = np.sum(intersection_SNPs[sample] == intersection_SNPs['%s_called' % sample])
-    called_correct_percentage = true_hits / float(len(WGS_result))
-    print("Among %d variants identified by WGS, %d (%.3f) are called by ATAC-seq reads, %d (%.3f) are correct" % (len(WGS_result), N, N/float(len(WGS_result)), true_hits, true_hits / float(len(WGS_result))))
+    true_hits = np.sum(dat_all_genotypes[sample] == dat_all_genotypes['%s_called' % sample])
+    called_correct_percentage = true_hits / float(len(dat_all_genotypes))
+    recovered = [len(dat_all_genotypes), N, true_hits, called_percentage, called_correct_percentage]
+    print("Among %d variants identified by WGS, %d (%.3f) are called by ATAC-seq reads, %d (%.3f) are correct" % (len(dat_all_genotypes), N, called_percentage, true_hits, called_correct_percentage))
 
-    recovered = [len(WGS_result), N, true_hits, called_percentage, called_correct_percentage]
 
-    print('Among tested variants')
     ### Among the tested variants, evaluate the performance
-    intersection_SNPs = intersection_SNPs[~intersection_SNPs['REF_y'].isnull()]
-    confusion_matrix = obtain_confusion_matrix(intersection_SNPs, sample)
+    print('Among tested variants')
+    dat_all_genotypes = dat_all_genotypes[~dat_all_genotypes['REF_y'].isnull()]
+    confusion_matrix = obtain_confusion_matrix(dat_all_genotypes, sample)
 
     recall_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3])).ravel()
     precision_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3])).ravel()
@@ -118,6 +126,7 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
         return [sample] + recovered + performance
     else:
         return [sample, minDP] + recovered + performance
+
 
 
 

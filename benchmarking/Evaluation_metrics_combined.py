@@ -14,12 +14,17 @@ def retrive_coverage_for_all_samples_imputed(restrict_to_SNP, saveFile):
     for s in samples[:1]:
 	print('For %s:' % s)
         # WGS genotype
-        WGS_df = read_in_WGS_GT(s, assembly = 'GRCh38')
+        WGS_df = read_in_WGS_GT(s)
 
         # variant calling information
         try:
-            token = obtain_atac_variants_df(s, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
-            performance.append(token)
+	    print('Evaluate genotype originally called from ATAC-seq reads...')
+            orginally_called = obtain_atac_variants_df(s, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False, return_metric = False)
+
+	    print('Evalutae genotype imputed')
+	    imputed = obtain_atac_variants_df(s, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, return_metric = False)
+
+	    pdb.set_trace()
         except:
             print('%s does not have genotype data' % s)
 
