@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 from Evaluation_metrics import *
+from prepare_data_matrix import *
 
 def retrive_coverage_for_all_samples(minDP, restrict_to_SNP, saveFile):
     samples = pd.read_csv('samples.txt', header=None)
@@ -27,7 +28,7 @@ def retrive_coverage_for_all_samples(minDP, restrict_to_SNP, saveFile):
     performance = pd.DataFrame(performance)
     performance.columns = ['Sample', 'minDP', 
 			   'N_variants_by_WGS', 'N_variants_by_ATAC', 'N_overlap_variants_by_ATAC', 'Recovered_percentage', 'Correctly_performance_percentage',
- 			   'Sens_AA', 'Sens_AB', 'Sens_BB', 'Spec_AA', 'Spec_AB', 'Spec_BB']
+ 			   'Recall_AA', 'Recall_AB', 'Recall_BB', 'Precision_AA', 'Precision_AB', 'Precision_BB']
     performance.to_csv(saveFile, sep='\t', index = False)
 
     return performance

@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
-
+from prepare_data_matrix import convert_gt_to_number
 
 def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     print('Read in WGS data...')
