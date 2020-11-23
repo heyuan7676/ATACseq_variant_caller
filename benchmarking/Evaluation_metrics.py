@@ -58,9 +58,10 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
         print('%s does not called genotpye' % sample)
         return
 
-    SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', usecols=[0, 1, 2, col_to_read])
+    SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', usecols=[0, 1, 2, col_to_read], low_memory=False)
     SNP_called.columns = list(SNP_called.columns[:3]) + ['%s_called' % sample]
-    #SNP_called['#CHROM'] = [int(x.replace('chr','')) for x in SNP_called['#CHROM']]
+    SNP_called['#CHROM'] = SNP_called['#CHROM'].apply(str)
+    WGS_result['#CHROM'] = WGS_result['#CHROM'].apply(str)
 
     # restrict to SNP
     if restrict_to_SNP:
@@ -71,12 +72,6 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
         SNP_called = SNP_called.iloc[np.where([len(x.split('/')[1]) == 1 for x in SNP_called['%s_called' % sample]])[0]]
         SNP_called = SNP_called.iloc[np.where([len(x.split('/')[1]) == 1 for x in SNP_called['%s_called' % sample]])[0]]
 
-    print("done\n")
-
-
-    print('Measure performance...')
-   
-    print('Among all variants')
     # variants with some read
     SNP_called = SNP_called.drop_duplicates()
     intersection_SNPs = WGS_result.merge(SNP_called, on=['#CHROM', 'POS'], how = 'left')
@@ -91,6 +86,7 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
     need_to_flip = np.intersect1d(HT, match_idx)
     intersection_SNPs.loc[need_to_flip,sample] = intersection_SNPs.loc[need_to_flip,'%s_makeup' % sample]
 
+    print("done\n")
 
     if return_metric:
         return compute_metric(intersection_SNPs, Imputed = Imputed)
@@ -100,6 +96,9 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
 
 
 def compute_metric(dat_all_genotypes, Imputed = False):
+    print('Measure performance...')
+    print('Among all variants')
+
     ### Among all tested, how many are recovered
     N = sum(~dat_all_genotypes['REF_y'].isnull())
     called_percentage = N/float(len(dat_all_genotypes))
