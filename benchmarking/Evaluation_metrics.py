@@ -89,13 +89,13 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
     print("done\n")
 
     if return_metric:
-        return compute_metric(intersection_SNPs, Imputed = Imputed)
+        return compute_metric(intersection_SNPs, sample = sample, minDP = minDP, Imputed = Imputed)
     else:
         return intersection_SNPs
 
 
 
-def compute_metric(dat_all_genotypes, Imputed = False):
+def compute_metric(dat_all_genotypes, sample, minDP = None, Imputed = False):
     print('Measure performance...')
     print('Among all variants')
 
