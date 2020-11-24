@@ -1,15 +1,16 @@
 #!/bin/bash
 
 sample="$1"
-cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/
-VCF=${sample}.filtered.recode.vcf.gz
+cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/GRCh37/
+VCF=${sample}.filtered.recode.GRCh37.vcf
 
 
 ml htslib
 ml vcftools
-ml python/2.7
 
-#bgzip -c $VCF #compress vcf
+bgzip $VCF #compress vcf
+
+VCF=${sample}.filtered.recode.GRCh37.vcf.gz
 tabix -p vcf ${VCF} # index compressed vcf
 
 
@@ -20,10 +21,11 @@ for chromosome in {1..22}
 do
 	outfn=${sample}/${sample}_chr${chromosome}.vcf
 	cat ${sample}/${VCF}_header.txt > ${outfn}
-        tabix ${VCF} ${chromosome} | awk '{print "chr"$0}' | sed '/	<NON_REF>/d' | sed 's/,<NON_REF>//g' >> ${outfn}
+        tabix ${VCF} chr${chromosome} | sed 's/chr//g' | sed '/	<NON_REF>/d' | sed 's/,<NON_REF>//g' >> ${outfn}
 done
 
 cd ${sample}
+ml bcftools
 for chromosome in {1..22}
 do
 	outfn=${sample}_chr${chromosome}.vcf
