@@ -165,13 +165,20 @@ def remove_PCs(df, samples, PCA_k = 10):
 
 if __name__ == '__main__':
 
-    #PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks/'
-    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/'
+    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/combined/'
+    #PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/'
     BAM_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/first_pass_bqsr'
 
     [centered_data, bam_DF, samples] = read_in_peaks(BAM_DIR, PEAK_DIR, permute = False)
     [corrected_data, pca_model] = remove_PCs(centered_data, samples, PCA_k=12)
 
+    [permuted_centered_data, bam_DF, samples] = read_in_peaks(BAM_DIR, PEAK_DIR, True)
+    [permuted_corrected_data, permuted_pca_model] = remove_PCs(permuted_centered_data, samples, PCA_k=10)
+
+    idx = np.where( pca_model.explained_variance_ratio_[:50] <  permuted_pca_model.explained_variance_ratio_[:50])[0][0]
+    print('Correct for %d PCs' % idx)
+
+    [corrected_data, pca_model] = remove_PCs(centered_data, samples, PCA_k=idx - 1)
     for i in range(1,23):
         df_save = corrected_data[corrected_data['CHR'] == i]
         df_save.to_csv('%s/peak_by_sample_matrix_RPKM_corrected_chromosome%d.txt' % (PEAK_DIR, i), sep='\t', index = False)

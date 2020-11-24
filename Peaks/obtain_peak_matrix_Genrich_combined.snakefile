@@ -34,7 +34,7 @@ rule peak_IDs:
         union = PEAK_UNION_fn
     shell:
         """
-        awk "{{print \$0,"'"Peak"'"NR}}" {input.peaks} | sort -k4,4 | sed "s/ /	/g  " > {output.union}
+        awk "{{print \$1,\$2,\$3,"'"Peak"'"NR}}" {input.peaks} | sort -k4,4 | sed "s/ /	/g  " > {output.union}
         """
 
 
