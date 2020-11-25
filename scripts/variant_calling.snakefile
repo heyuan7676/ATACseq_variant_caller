@@ -17,7 +17,7 @@ rule GATK_haplotypecaller:
         genome_dict = GENOME_DICT,
         interesting_region = {oneK_variants_locations}
     output:
-        gvcf_gz = os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
+        gvcf_gz = temp(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
     threads: THREADS
     shell:
         '{GATK} HaplotypeCaller -R {GENOME_STAR} -L {input.interesting_region} \
@@ -121,3 +121,15 @@ rule call_genotype_GQ:
     shell:
         'vcf-to-tab < {input} > {output}'
 
+
+
+'''
+bgzip vcf files
+'''
+rule zip:
+    input:
+        os.path.join(VCF_DIR ,'{indiv}' + '.filtered.recode.vcf')
+    output:
+        os.path.join(VCF_DIR ,'{indiv}' + '.filtered.recode.vcf.gz')
+    shell:
+        'bgzip {input}'

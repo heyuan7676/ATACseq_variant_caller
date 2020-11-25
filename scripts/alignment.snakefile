@@ -41,7 +41,7 @@ rule keep_autosomal_genome:
         sam=os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam'),
         sambai=os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.sam.bai')
     output:
-        os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam')
+        temp(os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam'))
     threads:
         THREADS
     shell:
