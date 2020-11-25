@@ -21,4 +21,3 @@ mtReads=$(samtools idxstats $1 | grep 'MT' | cut -f 3)
 totalReads=$(samtools idxstats $1 | awk '{SUM += $3} END {print SUM}')
 
 echo '[INFO]: mtDNA Content:' $(bc <<< "scale=2;100*$mtReads/$totalReads")'%'
-

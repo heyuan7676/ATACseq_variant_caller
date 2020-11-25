@@ -14,6 +14,5 @@ cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/ftp.sra.ebi.a
 mkdir -p ${sample}
 cd ${sample}
 
-wget ftp://ftp.sra.ebi.ac.uk/vol1/ERZ683/${sample}/${f1}
-wget ftp://ftp.sra.ebi.ac.uk/vol1/ERZ683/${sample}/${f2}
-
+wget ${f1}
+wget ${f2}
