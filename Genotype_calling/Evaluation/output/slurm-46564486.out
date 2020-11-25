@@ -1,0 +1,27 @@
+For HG00149:
+Read in WGS data...
+done
+
+Evaluate genotype originally called from ATAC-seq reads...
+Read in genotype data called from ATAC-seq reads...
+done
+
+Measure performance...
+Among all variants
+Among 5977516 variants identified by WGS, 1906195 (0.319) are called by ATAC-seq reads, 1439609 (0.241) are correct
+Among tested variants
+[0.9988912260434644, 0.2616286512809514, 0.9325637233856477, 0.7426888115222123, 0.9927637721755369, 0.7052598667596623]
+done
+
+================================================
+
+Evalutae genotype imputed
+Read in genotype data called from ATAC-seq reads...
+Traceback (most recent call last):
+  File "Evaluation_metrics_combined.py", line 102, in <module>
+    compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True)
+  File "Evaluation_metrics_combined.py", line 29, in compute_genotype_metrics_called_and_imputed
+    imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, return_metric = False)
+  File "/work-zfs/abattle4/heyuan/Variant_calling/benchmarking/Evaluation_metrics.py", line 71, in obtain_atac_variants_df
+    SNP_called = SNP_called.iloc[np.where([len(x.split('/')[1]) == 1 for x in SNP_called['%s_called' % sample]])[0]]
+AttributeError: 'float' object has no attribute 'split'

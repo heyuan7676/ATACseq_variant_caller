@@ -1,0 +1,2 @@
+/var/spool/slurm//job46564483/slurm_script: line 9: 94866 Killed                  python Evaluation_metrics_combined.py "$1"
+slurmstepd: error: Detected 1 oom-kill event(s) in step 46564483.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.

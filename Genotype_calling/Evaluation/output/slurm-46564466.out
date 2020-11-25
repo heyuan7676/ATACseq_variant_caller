@@ -1,0 +1,1 @@
+/var/spool/slurm//job46564466/slurm_script: line 9: 25347 Killed                  python Evaluation_metrics_combined.py "$1"

@@ -1,0 +1,2 @@
+sample	original_precision_AB	original_precision_AA_BB	imputed_precision_AB	imputed_precision_AA_BB
+HG00109	0.9817578772802653	0.18958312728711305	0.7372274971515381	0.11178008836973788

@@ -1,0 +1,60 @@
+For HG01789:
+Read in WGS data...
+done
+
+Evaluate genotype originally called from ATAC-seq reads...
+Read in genotype data called from ATAC-seq reads...
+done
+
+Measure performance...
+Among all variants
+Among 5977491 variants identified by WGS, 2328379 (0.390) are called by ATAC-seq reads, 1784368 (0.299) are correct
+Among tested variants
+[0.998848421148837, 0.29666172257553286, 0.9398953329245988, 0.749771422370297, 0.9929364827492406, 0.7202898407065611]
+done
+
+================================================
+
+Evalutae genotype imputed
+Read in genotype data called from ATAC-seq reads...
+done
+
+Measure performance...
+Among all variants
+Among 5981763 variants identified by WGS, 5717835 (0.956) are called by ATAC-seq reads, 4588529 (0.767) are correct
+Among tested variants
+[0.9259271091288264, 0.5133616145361457, 0.9790204899401614, 0.9083628175286925, 0.8259417095616771, 0.5911445443812999]
+done
+
+================================================
+
+Evalutae genotype imputed - captured only in originally called variants
+Measure performance...
+Among all variants
+Among 54273 variants identified by WGS, 54273 (1.000) are called by ATAC-seq reads, 40956 (0.755) are correct
+Among tested variants
+[0.9943370811226874, 0.118501415164606, 0.7201342281879195, 0.7586677014073873, 0.9122706422018348, 0.6634377576257213]
+done
+
+================================================
+
+Evalutae genotype imputed - captured only in imputation
+Measure performance...
+Among all variants
+Among 3442500 variants identified by WGS, 3442500 (1.000) are called by ATAC-seq reads, 2711826 (0.788) are correct
+Among tested variants
+[0.9246636030645198, 0.47675105390112493, 0.9684534082932933, 0.8927173387047658, 0.8102013607944097, 0.5806003402985439]
+done
+
+================================================
+
+Evalutae genotype imputed - captured in both methods
+    sample       ...       only_in_imputed
+0  HG01789       ...               3442500
+
+[1 rows x 5 columns]
+Evalutae genotype imputed - captured in both methods but with disconcordant genotype
+    sample           ...           imputed_precision_AA_BB
+0  HG01789           ...                          0.123331
+
+[1 rows x 5 columns]

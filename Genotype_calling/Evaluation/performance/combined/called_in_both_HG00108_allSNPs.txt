@@ -1,0 +1,2 @@
+sample	only_in_orignal	called_in_both_consistent	called_in_both_inconsistently	only_in_imputed
+HG00108	30089	983638	264440	4470220
