@@ -6,10 +6,23 @@ import numpy as np
 import pandas as pd
 
 
-def read_in_peaks(PEAK_dir):
-    peak_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM_corrected.txt' % (PEAK_dir), sep='\t', nrows=10)
+def readin_peak_samples(PEAK_dir):
+    peak_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM.txt' % (PEAK_dir), sep=' ', nrows=10)
     samples = [x for x in peak_dat.columns if x.startswith('HG')]
     return samples
+
+def read_in_peaks_Zenodo(PEAK_dir, chromosome):
+    peak_dat = pd.read_csv('%s/chromosome%d_corrected_fpkm.txt' % (PEAK_dir, chromosome), sep='\t')
+    peak_dat.columns = ['PEAK'] + list(peak_dat.columns[1:])
+
+    peak_loc = pd.read_csv('%s/chromosome%d_loc.bed' % (PEAK_dir, chromosome), sep='\t')
+    peak_loc.columns = ['PEAK', 'CHR', 'START', 'END']
+
+    peak_dat = peak_dat.merge(peak_loc, on = 'PEAK')
+
+    samples = [x for x in peak_dat.columns if x.startswith('HG')]
+    return [peak_dat, samples]
+
 
 
 def convert_gt_to_number(arri):
@@ -58,9 +71,9 @@ def obtain_numerical_gt(gt_dat, samples):
     
 
 
-def readin_genotype(Genotype_dir, chromosome, samples, suffix):
+def readin_genotype(Genotype_dir, chromosome, samples):
     ## Read in Genotpye
-    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d%s.txt' % (Genotype_dir, chromosome, suffix), sep=' ')
+    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ')
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
     gt_dat = gt_dat.replace('./.', '0')
     gt_dat = gt_dat.replace(0, '0')
@@ -120,9 +133,9 @@ def derive_ll(info_dat, samples):
 
 
 
-def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples, suffix):
+def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples):
     ## Read in Genotpye INFO
-    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d%s.txt' % (VCF_dir, chromosome, suffix), sep=' ')
+    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d.txt' % (VCF_dir, chromosome), sep=' ')
     info_dat = info_dat[[x for x in info_dat.columns if 'Unnamed' not in x]]
     info_dat = info_dat.set_index('CHR_POS').loc[gt_dat['CHR_POS']].reset_index()
     info_dat = info_dat.replace(0, '0')
@@ -139,16 +152,19 @@ def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples, suffix):
     return post_pp_dat
 
 
-def read_in_WGS_GT(samples, snps = None):
-    WGS_fn = '%s/1k_genome_chr%d.genotypes.tsv' % (WGS_dir, CHROMOSOME)
+def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
+    WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t')
     WGS_result = WGS_result.drop_duplicates()
 
     samples = [x for x in WGS_result.columns if x.startswith('HG')]
     WGS_result.index = WGS_result[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
 
+    WGS_result = WGS_result.replace('./.', '0')
+    WGS_result = WGS_result.replace(0, '0')
+
+     # use only the SNPs from called genotypes
     if snps is not None:
-        # use only the SNPs from called genotypes
         WGS_result = WGS_result.loc[snps]
 
     WGS_result = WGS_result.drop_duplicates()
@@ -156,19 +172,32 @@ def read_in_WGS_GT(samples, snps = None):
     WGS_result.index.name = 'CHR_POS'
     WGS_result = WGS_result.reset_index()
 
-    samples = list(np.intersect1d(samples, WGS_result.columns))
+    # remove rows with less than 3 samples
+    valid_snps = np.where(np.sum(np.array(WGS_result[samples]) != '0', axis=1) >= 3)[0]
+    WGS_result = WGS_result.iloc[valid_snps].reset_index(drop=True)
+
+    # remove rows with only one genotype
+    validQTLsnps = np.where([len(set(x))>2 for x in np.array(WGS_result[samples])])[0]
+    WGS_result = WGS_result.iloc[validQTLsnps].reset_index(drop=True)
+
+    samples = list(np.intersect1d(samples_peaks, WGS_result.columns))
     WGS_result = WGS_result[list(WGS_result.columns[:3]) + samples]
 
-    return WGS_result
+    print('Convert genotype to numerical values')
+    WGS_dat = obtain_numerical_gt(WGS_result, samples)
+
+    # again remove rows with only one genotype (ie. A/T and T/A)
+    validQTLsnps = np.where([len(set(x))>2 for x in np.array(WGS_dat[samples])])[0]
+    WGS_dat = WGS_dat.iloc[validQTLsnps].reset_index(drop=True)
+
+    return [WGS_dat, samples]
 
 
 
 if __name__ == "__main__":
     CHROMOSOME = int(sys.argv[1])
-    #SUFFIX = sys.argv[2]
     GT_DIR = 'minDP2'
     SUFFIX = '_minDP2'
-    #SUFFIX = '_GQ1'
 
     PEAK_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks'
     WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
@@ -178,35 +207,37 @@ if __name__ == "__main__":
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_DIR)
     VCF_dir = '%s/VCF_files' % root_dir
     QTL_dir = '%s/QTLs' % root_dir
-    #os.makedirs(QTL_dir, exist_ok = True)
+    if not os.path.exists(QTL_dir):
+        os.makedirs(QTL_dir)
 
     ## read in data
-    SAMPLES = read_in_peaks(PEAK_dir)
-    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
-    WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES, suffix=SUFFIX)
+    SAMPLES = readin_peak_samples(PEAK_dir)
+    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
+    WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
 
-    WGS_dat = read_in_WGS_GT(SAMPLES, GT_DAT['CHR_POS'])
-    SAMPLES = list(np.intersect1d(SAMPLES, WGS_dat.columns))
-    WGS_DAT = obtain_numerical_gt(WGS_dat, SAMPLES)
 
-    WGS_dat_all = read_in_WGS_GT(SAMPLES)
+    [WGS_DAT, SAMPLES_WGS] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir, snps = np.array(GT_DAT['CHR_POS']))
+    SAMPLES = list(np.intersect1d(SAMPLES, SAMPLES_WGS))
+
+    [WGS_dat, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
     WGS_DAT_all = obtain_numerical_gt(WGS_dat_all, SAMPLES)
 
 
     save_matrix = False
     if save_matrix:
         save_dir = os.path.join(Genotype_dir, 'Save_Matrix')
-	os.makedirs(save_dir, exist_ok = True)
-    	GT_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    	GT_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        GT_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+        GT_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
 
-    	WEIGHT_DAT[SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_weights.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t')
+        WEIGHT_DAT[SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_weights.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t')
 
-    	WGS_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    	WGS_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+        WGS_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+        WGS_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
 
-    	WGS_DAT_all[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT_all.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
-    	WGS_DAT_all[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT_all.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
+        WGS_DAT_all[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d%s_realGT_all.txt' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index = False)
+        WGS_DAT_all[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d%s_loc_realGT_all.bed' % (save_dir, CHROMOSOME, SUFFIX), sep='\t', index=False)
 
     
 

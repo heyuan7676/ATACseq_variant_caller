@@ -5,13 +5,16 @@
 
 source ~/.bash_profile
 
-cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks
 
+ROOT_DIR="$1"
+PEAK_DIR='${ROOT_DIR}/Peaks_Genrich'
+
+cd ${PEAK_DIR}
 # Label your input BED files so that their IDs uniquely identify their intervals
-for f in *_peaks.narrowPeak
+for f in HG*_peaks.Genrich.narrowPeak
 do
-	sample=${f/_peaks.narrowPeak/}
-	cut -f1-3 ${f} | awk -vidx=$sample '{ print $0"\t"idx; }'  | sort -k1,1 -k2,2n > ${sample}.id.bed
+	sample=${f/_peaks.Genrich.narrowPeak/}
+	cut -f1-3 ${f} | awk -vidx=$sample '{ print $0"\t"idx; }' | sort -k1,1 -k2,2n > ${sample}.id.bed
 done
 
 
@@ -40,5 +43,4 @@ rm -f *.count.unionPeaks.bed
 rm -f *.count.unionPeaks.bed_matrix
 rm -f peak_by_sample_matrix_chr*
 rm -f union-peaks.bed
-rm -f union-thresholded_level*clean*
-
+rm -f *RPKM*

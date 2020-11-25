@@ -165,9 +165,11 @@ def remove_PCs(df, samples, PCA_k = 10):
 
 if __name__ == '__main__':
 
-    PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/combined/'
-    #PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/'
-    BAM_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/first_pass_bqsr'
+    #PEAK_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich/combined/'
+    #BAM_DIR = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/first_pass_bqsr'
+
+    PEAK_DIR = sys.argv[1]
+    BAM_DIR = sys.argv[2]
 
     [centered_data, bam_DF, samples] = read_in_peaks(BAM_DIR, PEAK_DIR, permute = False)
     [corrected_data, pca_model] = remove_PCs(centered_data, samples, PCA_k=12)

@@ -69,6 +69,6 @@ def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, 
     print('    Used %f miniutes' % ((end - start)/60))
     print("") 
     QTL_results = QTL_results.sort_values('P-value')
-    QTL_results.to_csv('%s/CHR%d_caQTLs_WINDOW_%dkb%s.txt' % (save_dir, chromosome, WINDOW/1000, saveSuffix), sep='\t', index = False)
+    QTL_results.to_csv('%s/CHR%d_caQTLs_WINDOW_%skb%s.txt' % (save_dir, chromosome, str(WINDOW/1000.0), saveSuffix), sep='\t', index = False)
 
 

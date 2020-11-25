@@ -6,10 +6,6 @@ BOWTIE_DIR = config['BOWTIE_DIR']
 VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files')
 GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
 
-#SUBSAMPLE_DIR = config['SUBSAMPLE_DIR']
-#VCF_DIR = os.path.join(SUBSAMPLE_DIR, 'VCF_files')
-#GENOTYPE_DIR = os.path.join(SUBSAMPLE_DIR, 'Called_GT')
-
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
 INDIVS = INDIVS[0]
 CHROM = config['CHROM']

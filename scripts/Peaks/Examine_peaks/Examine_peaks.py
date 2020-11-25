@@ -141,9 +141,10 @@ def compare_genrich_combined():
 
 
 if __name__ == '__main__':
-        macs_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks'
-        genrich_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Genrich'
-        overlap_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Examine'
+ 	root_dir = sys.argv[1]
+        macs_dir = '%s/Peaks' % root_dir
+        genrich_dir = '%s/Peaks_Genrich' % root_dir
+        overlap_dir = '%s/Peaks_Examine' % root_dir
 
 	#compare_macs2_combined()
 	#compare_macs2_genrich_union()

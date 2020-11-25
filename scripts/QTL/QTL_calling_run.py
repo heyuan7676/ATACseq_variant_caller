@@ -17,14 +17,15 @@ def read_in_peaks(PEAK_dir, chromosome):
 
 
 if __name__ == "__main__":
-    CHROMOSOME = int(sys.argv[1])
-    WINDOW = int(sys.argv[2])
-    peak_calling = sys.argv[3]
+    ROOT_DIR = sys.argv[1]  # /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/
+    CHROMOSOME = int(sys.argv[2])
+    WINDOW = int(sys.argv[3])
+    peak_calling = sys.argv[4]
 
     alignment_dir = 'alignment_bowtie' # alignment_subsample_0.5
     GT_subDir = 'minDP2'
 
-    root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/%s' % alignment_dir
+    root_dir = '%s/%s' % (ROOT_DIR, alignment_dir)
     VCF_dir = '%s/VCF_files' % root_dir
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
 
@@ -42,11 +43,15 @@ if __name__ == "__main__":
         PEAK_dir = '%s/Peaks_Genrich' % root_dir
         QTL_dir = '%s/QTLs_Genrich/%s' % (root_dir, GT_subDir)
 
+    elif peak_calling == 'Genrich_combined':
+        PEAK_dir = '%s/Peaks_Genrich/combined' % root_dir
+        QTL_dir = '%s/QTLs_Genrich_combined/%s' % (root_dir, GT_subDir)
+
     if not os.path.exists(QTL_dir):
         os.makedirs(QTL_dir)
 
 
-    print('Call ca-QTLs for chromosome %d with window = %fkb' % (CHROMOSOME, str(WINDOW/1000.0)))
+    print('Call ca-QTLs for chromosome %d with window = %skb' % (CHROMOSOME, str(WINDOW/1000.0)))
 
     ## read in data
     [PEAK_DAT, SAMPLES_Peaks] = read_in_peaks(PEAK_dir, CHROMOSOME)

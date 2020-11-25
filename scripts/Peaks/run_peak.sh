@@ -21,22 +21,10 @@ ml bedtools
 
 ## Run multiple jobs in parallel
 snakemake --use-conda --jobs 40 \
-    --cluster "sbatch --ntasks=4 --time=24:00:00 --partition shared" \
+    --cluster "sbatch --ntasks=2 --time=24:00:00 --partition shared" \
     --rerun-incomplete \
     --keep-going \
     --latency-wait 5 \
     --printshellcmds \
     $@
-
-# Note: need to specify conda environment in rule
-
-
-## failed
-#~/miniconda3/envs/snakemake/bin/snakemake -s Snakefile \
-#          --profile /home-4/yhe23@jhu.edu/.config/snakemake/slurm \
-#          --rerun-incomplete \
-#          --use-conda
-# Problem: the submitted job can't find the snakemake module
-# Error: No module named snakemake.utils
-
 

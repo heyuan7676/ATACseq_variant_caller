@@ -3,10 +3,10 @@
 #SBATCH --ntasks=1
 #SBATCH --time=6:00:00
 
-macs2_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks
-combined_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks/combined
-output_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Peaks_Examine
-
+ROOT_DIR="$1"
+macs2_dir=${ROOT_DIR}/Peaks
+combined_dir=${ROOT_DIR}/Peaks/combined
+output_dir=${ROOT_DIR}/Peaks_Examine
 
 fn1=${macs2_dir}/union-peaks.bed
 fn2=${macs2_dir}/combined/union-peaks_combined.bed 
