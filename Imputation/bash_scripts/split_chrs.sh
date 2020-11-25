@@ -1,9 +1,10 @@
 #!/bin/bash
 
 sample="$1"
-cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/GRCh37/
-VCF=${sample}.filtered.recode.GRCh37.vcf
 
+root_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/PRJNA484801
+cd ${root_dir}/ATAC_seq/alignment_bowtie/VCF_files/GRCh37/
+VCF=${sample}.filtered.recode.GRCh37.vcf
 
 ml htslib
 ml vcftools

@@ -1,7 +1,15 @@
 #!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --time=12:00:00
+#SBATCH -p skylake
 
 sample="$1"
-datadir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Imputation/${sample}
+
+root_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/PRJNA484801
+datadir=${root_dir}/ATAC_seq/alignment_bowtie/Imputation/${sample}
+mkdir -p ${datadir}
+
 liftOverdir=/work-zfs/abattle4/heyuan/tools/liftOver
 
 ml vcftools

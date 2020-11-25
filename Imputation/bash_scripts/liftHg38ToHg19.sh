@@ -5,12 +5,12 @@
 #SBATCH -p skylake
 
 sample="$1"
-cd /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/
-VCF=${sample}.filtered.recode.vcf.gz
+root_dir=/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/PRJNA484801
+cd ${root_dir}/ATAC_seq/alignment_bowtie/VCF_files/
+mkdir -p GRCh37/
 
+VCF=${sample}.filtered.recode.vcf
 outputFn=GRCh37/${sample}.filtered.recode.GRCh37.vcf
-gunzip ${VCF}
-
 
 VCF=${VCF/.gz/}
 cat ${VCF} |  grep "^#" > ${VCF}_temp
