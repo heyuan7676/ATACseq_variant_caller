@@ -6,7 +6,7 @@ BOWTIE_DIR = config['BOWTIE_DIR']
 VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files')
 GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
 
-INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
+INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
 INDIVS = INDIVS[0]
 CHROM = config['CHROM']
 
@@ -16,16 +16,16 @@ minDP_arr = config['minDP_arr']
 
 rule all:
     input:
-        expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),
+        #expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),
         expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM, minDP = minDP_arr),
-        expand(os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
+        expand(os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}_atac.txt"), chr = CHROM)
 
 
 rule collect_gt_each:
     input:
         os.path.join(GENOTYPE_DIR, "minDP{minDP}", "{indiv}.filtered.genotype.minDP{minDP}.txt")
     output:
-        snps = temp(os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_temp")),
+        snps = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_snps"),
     shell:
         """
         paste -d"_" <(awk "{{print \$1}}" {input}) <(awk "{{print \$2,\$4}}" {input}) | sed "1d" | sort -k1,1 > {output.snps}
@@ -34,9 +34,9 @@ rule collect_gt_each:
 
 rule union_set_SNPs:
     input:
-        expand(os.path.join(GENOTYPE_DIR, "minDP{{minDP}}","{indiv}.filtered.genotype.txt_temp"), indiv = INDIVS)
+        expand(os.path.join(GENOTYPE_DIR, "minDP{{minDP}}","{indiv}.filtered.genotype.txt_snps"), indiv = INDIVS)
     output:
-        fn1 = temp(os.path.join(GENOTYPE_DIR,  "minDP{minDP}", "union-SNPs_minDP{minDP}.bed_temp")),
+        fn1 = temp(os.path.join(GENOTYPE_DIR,  "minDP{minDP}", "union-SNPs_minDP{minDP}.bed_snps")),
         fn2 = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", "union-SNPs_minDP{minDP}.bed")
     shell:
         """
@@ -52,7 +52,7 @@ rule union_set_SNPs:
 
 rule collect_genotype_union:
     input:
-        gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_temp"),
+        gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_snps"),
         snps = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed')
     output:
         gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_matrix")
@@ -96,7 +96,7 @@ rule obtain_INFO_matrix:
         info = expand(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf_matrix"), indiv = INDIVS),
         snps = os.path.join(GENOTYPE_DIR,  "minDP2", 'union-SNPs_minDP2.bed')
     output:
-        bychr = os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}.txt")
+        bychr = os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}_atac.txt")
     shell:
         """
         echo "CHR_POS CHR POS {INDIVS}" | tr "\\n" " " > {output.bychr}
