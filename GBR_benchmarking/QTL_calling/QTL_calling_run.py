@@ -75,7 +75,6 @@ if __name__ == "__main__":
     if imputation:
         Genotype_dir = '%s/Imputation' % root_dir
         GT_DAT_Imputed = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
-        pdb.set_trace()
 
 	only_atac_reads = set(GT_DAT['CHR_POS']) - set(GT_DAT_Imputed['CHR_POS'])
 	only_imputed = set(GT_DAT_Imputed['CHR_POS']) - set(GT_DAT['CHR_POS'])
