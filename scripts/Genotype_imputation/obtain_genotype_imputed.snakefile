@@ -16,8 +16,8 @@ CHROM = config['CHROM']
 rule all:
     input:
         #expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids"), indiv = INDIVS)
-        os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed_v2.bed"),
-        #expand(os.path.join(IMPUTATION_DIR, "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
+        #os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed"),
+        expand(os.path.join(IMPUTATION_DIR, "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
 
 
 rule collect_gt_each:
@@ -37,8 +37,8 @@ rule union_set_SNPs:
     input:
         expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids"), indiv = INDIVS)
     output:
-        fn1 = temp(os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed_temp_v2")),
-        fn2 = os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed_v2.bed")
+        fn1 = temp(os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed_temp")),
+        fn2 = os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed")
     shell:
         """
         sort -mu {input} > {output.fn1}
