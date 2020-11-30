@@ -19,7 +19,6 @@ if not os.path.isdir(IMPUTATION_DIR):
 
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
 INDIVS = INDIVS[0]
-INDIVS = [x for x in INDIVS if x.startswith('SRR')]
 INDIVS.sort()
 
 for s in INDIVS:
@@ -40,8 +39,9 @@ wildcard_constraints:
 rule all:
     input:
         #expand(os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"), indiv = INDIVS),
-        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.vcf.gz"), indiv = INDIVS, chr = CHROM)
-        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.imputed.GRCh37.dose.vcf.gz"), indiv = INDIVS, chr = CHROM)
+        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"), indiv = INDIVS, chr = CHROM)
+        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz"), indiv = INDIVS, chr = CHROM)
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt"), indiv = INDIVS)
 
 
 CHAIN_FN = "/work-zfs/abattle4/heyuan/tools/liftOver/hg38ToHg19.over.chain.gz"
@@ -85,10 +85,10 @@ rule split_chromosomes:
         vcf_gz = os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"),
         header = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.filtered.recode.GRCh37.header.txt")
     params:
-        temp_fn = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.vcf.temp"),
-        chr_vcf = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.vcf"),
+        temp_fn = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.temp"),
+        chr_vcf = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf")
     output:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.vcf.gz"),
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"),
     shell:
         """
         cat {input.header} > {params.chr_vcf}
@@ -105,12 +105,14 @@ rule split_chromosomes:
 
 rule imputation:
     input:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.vcf.gz"),
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"),
         chr_ref_panel = "/work-zfs/abattle4/lab_data/imputation_reference_panel/{chr}.1000g.Phase3.v5.With.Parameter.Estimates.m3vcf.gz"
     params:
-        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.imputed.GRCh37")
+        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37")
     output:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.imputed.GRCh37.dose.vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz")
+    conda:
+        "../envs/env_py37.yml"
     shell:
         'minimac4 --refHaps {input.chr_ref_panel} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 100 --ignoreDuplicates'
 
@@ -118,16 +120,15 @@ rule imputation:
 
 rule obtain_genotype:
     input:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.imputed.GRCh37.dose.vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz")
     params:
-        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.chr{chr}.imputed.GRCh37.dose.vcf")
+        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf")
     output:
         os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
     shell:
         """
-        gunzip {input}
+        gunzip -f {input}
         vcf-to-tab < {params.intermediate} > {output}
-        gzip {params.intermediate}
         """
 
 
@@ -154,14 +155,9 @@ rule merge_chrs:
         os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt")
     shell:
         """
-        head -n1 chr${chromosome}.imputed.GRCh37.genotype.txt > ${sample}.imputed.GRCh38.genotype.txt
-        cat chr*.imputed.GRCh38.genotype.txt | sed 's/chr//g' >> ${sample}.imputed.GRCh38.genotype.txt
+        head -n1 chr22.imputed.GRCh37.genotype.txt > {output}
+        cat {input} | sed 's/chr//g' >> {output}
         """
-
-
-
-
-
 
 
 
