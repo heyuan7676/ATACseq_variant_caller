@@ -125,6 +125,8 @@ rule obtain_genotype:
         intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf")
     output:
         os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
+    conda:
+        "../envs/env_py37.yml"
     shell:
         """
         gunzip -f {input}
