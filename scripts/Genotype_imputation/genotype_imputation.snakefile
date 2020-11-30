@@ -152,13 +152,14 @@ rule lift_to_GRCh38:
 
 rule merge_chrs:
     input:
-        expand(os.path.join(IMPUTATION_DIR, "{{indiv}}", "chr{chr}.imputed.GRCh38.genotype.txt"), chr = CHROM)
+        header = os.path.join(IMPUTATION_DIR, "{indiv}", "chr22.imputed.GRCh37.genotype.txt"),
+        files = expand(os.path.join(IMPUTATION_DIR, "{{indiv}}", "chr{chr}.imputed.GRCh38.genotype.txt"), chr = CHROM)
     output:
         os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt")
     shell:
         """
-        head -n1 chr22.imputed.GRCh37.genotype.txt > {output}
-        cat {input} | sed 's/chr//g' >> {output}
+        head -n1 {input.header} > {output}
+        cat {input.files} | sed 's/chr//g' >> {output}
         """
 
 
