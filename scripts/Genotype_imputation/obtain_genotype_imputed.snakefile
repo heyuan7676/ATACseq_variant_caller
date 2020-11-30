@@ -15,42 +15,40 @@ CHROM = config['CHROM']
 
 rule all:
     input:
-        os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed"),
-        expand(os.path.join(IMPUTATION_DIR, "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
+        #expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids"), indiv = INDIVS)
+        os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed_v2.bed"),
+        #expand(os.path.join(IMPUTATION_DIR, "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
 
 
 rule collect_gt_each:
     input:
         os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt")
     output:
-        snps = temp(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_temp")),
+        snps = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snps"),
+        snp_ids = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids")
     shell:
         """
         paste -d"_" <(awk "{{print \$1}}" {input}) <(awk "{{print \$2,\$4}}" {input}) | sed "1d" | sort -k1,1 > {output.snps}
+        awk "{{print \$1}}" {output.snps} > {output.snp_ids}
         """
 
 
 rule union_set_SNPs:
     input:
-        expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_temp"), indiv = INDIVS)
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids"), indiv = INDIVS)
     output:
-        fn1 = temp(os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed_temp")),
-        fn2 = os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed")
+        fn1 = temp(os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed_temp_v2")),
+        fn2 = os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed_v2.bed")
     shell:
         """
-        rm -f {output.fn1}
-        rm -f {output.fn2}
-        awk "{{print \$1}}" {input} >> {output.fn1}
-        sort -i {output.fn1} | uniq > {output.fn2}
-
-        mv {output.fn2} {output.fn1}
+        sort -mu {input} > {output.fn1}
         paste <( cat {output.fn1}) <(cat {output.fn1} | cut -d"_" -f1) <(cat {output.fn1}| cut -d"_" -f2) > {output.fn2}
         """
 
 
 rule collect_genotype_union:
     input:
-        gt = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_temp"),
+        gt = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snps"),
         snps = os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed")
     output:
         gt = temp(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.filtered.genotype.txt_matrix"))
@@ -58,6 +56,8 @@ rule collect_genotype_union:
         """
         join -e0 -a 1 -a 2 -j 1 {input.snps} -o auto {input.gt} | awk "{{print \$4}}"> {output.gt}
         """
+
+
 
 rule obtain_matrix:
     input:
@@ -71,6 +71,5 @@ rule obtain_matrix:
         echo "" >> {output.bychr}
         paste {input.snps} {input.gt} | awk "{{if((\$2 == "'"{wildcards.chr}"'")) print \$0}}"  | sed 's/	/ /g' >> {output.bychr}
         """
-
 
 
