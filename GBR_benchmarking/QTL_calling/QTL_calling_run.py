@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from statsmodels.regression import linear_model as sm
+
+sys.path.append('/work-zfs/abattle4/heyuan/Variant_calling/scripts/QTL')
 from prepare_data_matrix import *
 from QTL_calling import *
 
@@ -60,12 +62,11 @@ if __name__ == "__main__":
     [PEAK_DAT, SAMPLES_Peaks] = read_in_peaks(PEAK_dir, CHROMOSOME)
 
     ## align the samples with samples from WGS
-    print('Read in WGS data...')
     WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, '1k_genome_chr22')
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', nrows = 10)
     SAMPLES_WGS  = [x for x in WGS_result.columns if x.startswith('HG')]
     SAMPLES = list(np.intersect1d(SAMPLES_Peaks, SAMPLES_WGS))
-    print('%d samples are used for QTL analysis' % len(SAMPLES))
+    print('%d samples are used for QTL analysis\n' % len(SAMPLES))
 
     print('Read in genotype data from WGS...')
     [WGS_DAT, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
@@ -74,15 +75,13 @@ if __name__ == "__main__":
     ## read in data
     print('Read in genotype data from ATAC-seq reads...')
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
-    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
+    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
     print('done\n')
 
     if imputation:
         print('Read in genotype data from imputation...')
         Genotype_dir = '%s/Imputation' % root_dir
-        GT_DAT_Imputed = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
-	GT_DAT_Imputed = GT_DAT_Imputed.set_index('CHR_POS').loc[np.intersect1d(WGS_DAT['CHR_POS'], GT_DAT_Imputed['CHR_POS'])]
-	GT_DAT_Imputed['CHR_POS'] = GT_DAT_Imputed.index
+        GT_DAT_Imputed = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
   	print('done\n')
 
 	only_atac_reads = set(GT_DAT['CHR_POS']) - set(GT_DAT_Imputed['CHR_POS'])
@@ -92,39 +91,46 @@ if __name__ == "__main__":
 	GT_DAT_atac = GT_DAT.set_index('CHR_POS').loc[only_atac_reads]
 	GT_DAT_imputed = GT_DAT_Imputed.set_index('CHR_POS').loc[only_imputed]
 
-        # remove genotypes that: 1). called by no method a heterozygous site; 2). called differently by imputed data and the ATAC-seq reads
+	# deal with in-consistent calls from the two sources
 	GT_DAT_both = GT_DAT.set_index('CHR_POS').loc[both]
 	imputed_both = GT_DAT_Imputed.set_index('CHR_POS').loc[both]
-	discard_snps = np.where((np.array(GT_DAT_both[SAMPLES]) != np.array(imputed_both[SAMPLES])) & (np.array(GT_DAT_both[SAMPLES]) != 1) & (np.array(imputed_both[SAMPLES]) != 1) & (np.array(GT_DAT_both[SAMPLES]) != (-1)))
-
 	genotype_both = np.array(imputed_both[SAMPLES])
+
+	# remove genotypes that: 1). called by no method a heterozygous site; 2). called differently by imputed data and the ATAC-seq reads
+	discard_snps = np.where((np.array(GT_DAT_both[SAMPLES]) != np.array(imputed_both[SAMPLES])) * (np.array(GT_DAT_both[SAMPLES]) != 1) * (np.array(imputed_both[SAMPLES]) != 1))
 	genotype_both[discard_snps] = -1
+	
+	# use heterozygous calls from ATAC-seq reads
+	ht_calls_from_reads = np.where((np.array(imputed_both[SAMPLES]) != 1) & (np.array(GT_DAT_both[SAMPLES]) == 1))
+	genotype_both[ht_calls_from_reads] = 1 
+
 	genotype_both = pd.DataFrame(genotype_both)
 	genotype_both.columns = SAMPLES
 	genotype_both.index = GT_DAT_both.index
 	genotype_both['CHR'] = GT_DAT_both['CHR']
 	genotype_both['POS'] = GT_DAT_both['POS']
 	genotype_both = genotype_both[GT_DAT_imputed.columns]
+	assert np.sum(np.array(GT_DAT_both)[np.where(np.array(genotype_both)==-1)] == 1)  == 0
 	assert np.sum(np.array(imputed_both)[np.where(np.array(genotype_both)==-1)] == 1)  == 0
 	
-	genotype_merged = GT_DAT_atac.append(GT_DAT_imputed).append(genotype_both)
-	genotype_merged['CHR_POS'] = genotype_merged.index
-	
-	print("From ATAC-seq reads: Obtain %d variants in total; discard %d(%.2f) snps' genotype that have different genotype information from atac-seq reads and imputation, and that are not heterozygous" % (len(genotype_merged), len(discard_snps[0]), float(len(discard_snps[0])) / len(genotype_merged) / len(SAMPLES) ))
+	GT_MERGED_DAT = GT_DAT_atac.append(GT_DAT_imputed).append(genotype_both)
+	GT_MERGED_DAT['CHR_POS'] = GT_MERGED_DAT.index
 
-	GT_DAT = genotype_merged.copy()
+	print("Obtained %d variants from ATAC-seq reads only, %d variants from imputation only, and %d variants from both sources" % (len(GT_DAT_atac), len(GT_DAT_imputed), len(GT_DAT_both)))	
+	print("Obtain %d variants in total; discard %d(%.2f) snps' genotype that have different genotype information from atac-seq reads and imputation, and that are not heterozygous" % (len(GT_MERGED_DAT), len(discard_snps[0]), float(len(discard_snps[0])) / len(GT_MERGED_DAT) / len(SAMPLES) ))
+
 	# again remove rows with only one genotype because of integrating information from the two sources
-	validQTLsnps = np.where([len(set(x))>2 for x in np.array(GT_DAT[samples])])[0]
-	GT_DAT = GT_DAT.iloc[validQTLsnps].reset_index(drop=True)
+	validQTLsnps = np.where([len(set(x))>2 for x in np.array(GT_MERGED_DAT[SAMPLES])])[0]
+	GT_MERGED_DAT = GT_MERGED_DAT.iloc[validQTLsnps].reset_index(drop=True)
 
-	#maf = genotype_merged[SAMPLES].apply(lambda x: np.sum(x[x!=-1]) / np.sum(x!=-1) / 2, axis = 1)
+	#maf = GT_MERGED_DAT[SAMPLES].apply(lambda x: np.sum(x[x!=-1]) / np.sum(x!=-1) / 2, axis = 1)
 	#maf = maf.apply(lambda x: 1 - np.max([x, 1-x]))
-	#GT_DAT = GT_DAT.iloc[np.where(maf > 0.05)[0]]
+	#GT_MERGED_DAT = GT_MERGED_DAT.iloc[np.where(maf > 0.05)[0]]
 
         # not use weights
-        WEIGHT_DAT = GT_DAT.copy()
+        WEIGHT_DAT = GT_MERGED_DAT.copy()
         WEIGHT_DAT[SAMPLES] = 1
-        compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_withImputation_noWeight')
+        compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_MERGED_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_withImputation_noWeight')
 
     else:
         # use weights     
