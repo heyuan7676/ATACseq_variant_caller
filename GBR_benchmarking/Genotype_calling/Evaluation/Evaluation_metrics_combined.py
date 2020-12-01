@@ -5,7 +5,29 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 from Evaluation_metrics import *
-from prepare_genotype_data import *
+
+
+def convert_gt_to_number(arri):
+    '''
+    convert genotype type A/A to 0, 1, 2 ...
+    '''
+    arri_idx = np.where(arri!='0')[0]
+    nts = np.unique([a for b in [x.split('/') for x in arri[arri_idx]] for a in b])
+    # remove the sites with more than two alleles
+    if len(nts) > 2:
+        return np.ones(len(arri)) * (-1)
+    nts_dict = {}
+    i = 0
+    for ni in nts:
+        nts_dict[ni] = i
+        i += 1
+    numeric_gt = [np.sum([nts_dict[a] for a in x.split('/')]) for x in arri[arri_idx]]
+    numeric_gt_arr = np.ones(len(arri)) * (-1)
+    numeric_gt_arr[arri_idx] = numeric_gt
+    return numeric_gt_arr
+
+
+
 
 def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     if restrict_to_SNP:
@@ -105,4 +127,4 @@ if __name__ == '__main__':
     minDP = 2
     sample = sys.argv[1]
 
-    compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = False)
+    compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True)
