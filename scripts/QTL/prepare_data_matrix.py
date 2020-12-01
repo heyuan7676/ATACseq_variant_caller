@@ -31,7 +31,8 @@ def convert_gt_to_number(arri):
     '''
     arri_idx = np.where(arri!='0')[0]
     nts = np.unique([a for b in [x.split('/') for x in arri[arri_idx]] for a in b])
-    # remove the sites with more than two alleles
+
+    # remove the sites with more than two alleles, keep biallelic variants
     if len(nts) > 2:
 	return np.ones(len(arri)) * (-1)
     nts_dict = {}
@@ -48,7 +49,7 @@ def convert_gt_to_number(arri):
 def obtain_numerical_gt(gt_dat, samples):
 
     gt_numerical_dat = []
-    print('In total %d variants are called' % len(gt_dat))
+    print('In total %d variants are converted' % len(gt_dat))
     start = time.time()
     gt_numerical_dat = list(map(convert_gt_to_number, np.array(gt_dat[samples])))
     end = time.time()
@@ -71,32 +72,76 @@ def obtain_numerical_gt(gt_dat, samples):
     
 
 
-def readin_genotype(Genotype_dir, chromosome, samples):
+def readin_genotype(Genotype_dir, chromosome, samples, snps = None):
     ## Read in Genotpye
     gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ', low_memory=False)
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
     gt_dat = gt_dat.replace('./.', '0')
     gt_dat = gt_dat.replace(0, '0')
+
+    if snps is not None:
+	gt_dat = gt_dat.set_index('CHR_POS').loc[np.intersect1d(snps, gt_dat['CHR_POS'])]   
+	gt_dat['CHR_POS'] = gt_dat.index
+	gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS']  + list(samples)]
+	gt_dat = gt_dat.reset_index(drop = True)
+ 
+    gt_numerical_dat = qc_genotype_dat(gt_dat, samples)
+
+    return gt_numerical_dat
+
+
+
+def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
+    WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
+    WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', low_memory=False)
+    WGS_result = WGS_result.drop_duplicates()
+
+    WGS_result.index = WGS_result[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
+    WGS_result = WGS_result.replace('./.', '0')
+    WGS_result = WGS_result.replace(0, '0')
+
+     # use only the SNPs from called genotypes
+    if snps is not None:
+        WGS_result = WGS_result.loc[snps]
+
+    WGS_result = WGS_result.drop_duplicates()
+    WGS_result.columns = ['CHR', 'POS'] + list(WGS_result.columns[2:])
+    WGS_result.index.name = 'CHR_POS'
+    WGS_result = WGS_result.reset_index()
+
+    samples = list(np.intersect1d(samples_peaks, WGS_result.columns))
+    WGS_dat = qc_genotype_dat(WGS_result, samples)
     
-    # match sample order in genotype matrix with the peak matrix
-    gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS'] + samples]
+    return [WGS_dat, samples]
+
+
+
+def qc_genotype_dat(df, samples):
+
+    df = df[list(df.columns[:3]) + samples]
 
     # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(gt_dat[samples]) != '0', axis=1) > 3)[0]
-    gt_dat = gt_dat.iloc[valid_snps].reset_index(drop=True)
-    
-    # remove rows with only one genotype
-    validQTLsnps = np.where([len(set(x))>2 for x in np.array(gt_dat[samples])])[0]
-    gt_dat = gt_dat.iloc[validQTLsnps].reset_index(drop=True)
+    valid_snps = np.where(np.sum(np.array(df[samples]) != '0', axis=1) >= 3)[0]
+    print('Remove variants with data available in less than 3 samples: %d --> %d' % (len(df), len(valid_snps)))
+    df = df.iloc[valid_snps].reset_index(drop=True)
 
+    # remove variants with one genotype
+    validQTLsnps = np.where([len(set(x[x!='0'])) > 1 for x in np.array(df[samples])])[0]
+    print('Remove variants with one genotype: %d --> %d' % (len(df), len(validQTLsnps)))
+    df = df.iloc[validQTLsnps].reset_index(drop=True)
+   
+    # in this step, remove the sites with more than two alleles, keep biallelic variants 
     print('Convert genotype to numerical values')
-    gt_numerical_dat = obtain_numerical_gt(gt_dat, samples)
-
+    df_gt = obtain_numerical_gt(df, samples)
+    print('Keep variants with bi-allelic genotype: %d --> %d' % (len(df), len(df_gt)))
+    
     # again remove rows with only one genotype (ie. A/T and T/A)
-    validQTLsnps = np.where([len(set(x))>2 for x in np.array(gt_numerical_dat[samples])])[0]
-    gt_numerical_dat = gt_numerical_dat.iloc[validQTLsnps].reset_index(drop=True)
-        
-    return gt_numerical_dat
+    validQTLsnps = np.where([len(set(x[x != (-1)])) >= 2 for x in np.array(df_gt[samples])])[0]
+    print('Remove variants with one genotype: %d --> %d' % (len(df_gt), len(validQTLsnps)))
+    df_gt = df_gt.iloc[validQTLsnps].reset_index(drop=True)
+
+    return df_gt 
+
 
 
 def achieve_ll(rowi):
@@ -150,47 +195,6 @@ def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples):
     print('    Used %f seconds' % (end - start))
         
     return post_pp_dat
-
-
-def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
-    WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
-    WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', low_memory=False)
-    WGS_result = WGS_result.drop_duplicates()
-
-    samples = [x for x in WGS_result.columns if x.startswith('HG')]
-    WGS_result.index = WGS_result[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
-
-    WGS_result = WGS_result.replace('./.', '0')
-    WGS_result = WGS_result.replace(0, '0')
-
-     # use only the SNPs from called genotypes
-    if snps is not None:
-        WGS_result = WGS_result.loc[snps]
-
-    WGS_result = WGS_result.drop_duplicates()
-    WGS_result.columns = ['CHR', 'POS'] + list(WGS_result.columns[2:])
-    WGS_result.index.name = 'CHR_POS'
-    WGS_result = WGS_result.reset_index()
-
-    # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(WGS_result[samples]) != '0', axis=1) > 3)[0]
-    WGS_result = WGS_result.iloc[valid_snps].reset_index(drop=True)
-
-    # remove rows with only one genotype
-    validQTLsnps = np.where([len(set(x))>2 for x in np.array(WGS_result[samples])])[0]
-    WGS_result = WGS_result.iloc[validQTLsnps].reset_index(drop=True)
-
-    samples = list(np.intersect1d(samples_peaks, WGS_result.columns))
-    WGS_result = WGS_result[list(WGS_result.columns[:3]) + samples]
-
-    print('Convert genotype to numerical values')
-    WGS_dat = obtain_numerical_gt(WGS_result, samples)
-
-    # again remove rows with only one genotype (ie. A/T and T/A)
-    validQTLsnps = np.where([len(set(x))>2 for x in np.array(WGS_dat[samples])])[0]
-    WGS_dat = WGS_dat.iloc[validQTLsnps].reset_index(drop=True)
-
-    return [WGS_dat, samples]
 
 
 
