@@ -27,6 +27,9 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     print('Evalutae genotype imputed')
     imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, return_metric = False)
+
+    print('Among variants presented in 1000 Genome project phase three')
+    imputed = imputed[~imputed['REF_x'].isnull()]
     performance_imputed = compute_metric(imputed, sample = sample, minDP = 2)
 
     # compare the two called genotype datasets
@@ -90,6 +93,8 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     discrepancy_metrics.columns = ["sample", "original_precision_AB", "original_precision_AA_BB", "imputed_precision_AB", "imputed_precision_AA_BB"]
     print(discrepancy_metrics)
 
+    if not os.path.exists('performance/combined'):
+        os.makedirs('performance/combined')
     performance.to_csv('performance/combined/performance_one_method_%s%s.txt' % (sample, suffix), sep='\t', index = False)
     stats.to_csv('performance/combined/called_in_both_%s%s.txt' % (sample, suffix), sep='\t', index = False)
     discrepancy_metrics.to_csv('performance/combined/called_inconsistently_%s%s.txt' % (sample, suffix), sep='\t', index = False)
@@ -99,4 +104,4 @@ if __name__ == '__main__':
     minDP = 2
     sample = sys.argv[1]
 
-    compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True)
+    compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = False)

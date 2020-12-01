@@ -25,7 +25,7 @@ def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     
     WGS_result = pd.DataFrame()
 
-    for chromosome in range(1,23):
+    for chromosome in range(1, 23):
         WGS_fn = '%s/1k_genome_chr%d.%s' % (WGS_dir, chromosome, suffix)
         token = pd.read_csv(WGS_fn, 
                             comment = '$', 
@@ -73,9 +73,14 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
 
     # variants with some read
     SNP_called = SNP_called.drop_duplicates()
-    intersection_SNPs = WGS_result.merge(SNP_called, on=['#CHROM', 'POS'], how = 'left')
+    intersection_SNPs = WGS_result.merge(SNP_called, on=['#CHROM', 'POS'], how = 'outer')
     #assert len(intersection_SNPs) == len(WGS_result)
-    intersection_SNPs.loc[intersection_SNPs['%s_called' % sample].isnull(),'%s_called' % sample] = 'N/N'
+    intersection_SNPs.loc[intersection_SNPs['REF_y'].isnull(),'%s_called' % sample] = 'N/N'
+    intersection_SNPs.loc[intersection_SNPs['REF_x'].isnull(),'%s' % sample] = 'N/N'
+
+    N1 = sum(~intersection_SNPs['REF_y'].isnull())
+    N2 = sum(intersection_SNPs['REF_x'].isnull())
+    print("Among %d variants identified by ATAC-seq reads, %d (%.3f) are not included in WGS data" % (N1, N2, float(N2) / N1))
 
     # match for the HT order
     intersection_SNPs['%s_makeup' % sample] = ['/'.join(x.split('/')[::-1]) for x in intersection_SNPs[sample]]
@@ -109,14 +114,15 @@ def compute_metric(dat_all_genotypes, sample, minDP = None):
 
 
     ### Among the tested variants, evaluate the performance
-    print('Among tested variants')
+    print('Among recovered variants by ATAC-seq reads:')
     dat_all_genotypes = dat_all_genotypes[~dat_all_genotypes['REF_y'].isnull()]
     confusion_matrix = obtain_confusion_matrix(dat_all_genotypes, sample)
 
     recall_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=1)), [1,3])).ravel()
     precision_arr = np.array(map(float, np.diag(np.array(confusion_matrix))) / np.reshape(np.array(confusion_matrix.sum(axis=0)), [1,3])).ravel()
     performance = list(recall_arr) + list(precision_arr)
-    print(performance)
+    print(["Recall: ", recall_arr])
+    print(["Precision: ", precision_arr])
     print("done\n")
     print("================================================\n")
 
