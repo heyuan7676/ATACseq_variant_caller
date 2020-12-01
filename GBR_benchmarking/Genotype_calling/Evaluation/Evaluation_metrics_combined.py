@@ -27,6 +27,7 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     print('Evalutae genotype imputed')
     imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, return_metric = False)
+    N_notExist_in_WGS = sum(imputed['REF_x'].isnull())
 
     print('Among variants presented in 1000 Genome project phase three')
     imputed = imputed[~imputed['REF_x'].isnull()]
@@ -77,8 +78,8 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     discrepancy = discrepancy.copy()
     discrepancy['CHR_POS'] = discrepancy[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
 
-    stats = pd.DataFrame([sample, len(only_in_orignal), len(called_in_both) - len(discrepancy), len(discrepancy), len(only_in_imputed)]).transpose()
-    stats.columns = ["sample", "only_in_orignal", "called_in_both_consistent", "called_in_both_inconsistently", "only_in_imputed"]
+    stats = pd.DataFrame([sample, len(combined), N_notExist_in_WGS, len(only_in_orignal), len(called_in_both) - len(discrepancy), len(discrepancy), len(only_in_imputed)]).transpose()
+    stats.columns = ["sample", "called_and_in_WGS", "called(imputed)_not_in_WGS","only_in_orignal", "called_in_both_consistent", "called_in_both_inconsistently", "only_in_imputed"]
     print(stats)
 
     print('Evalutae genotype imputed - captured in both methods but with disconcordant genotype')

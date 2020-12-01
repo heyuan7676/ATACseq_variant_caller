@@ -7,7 +7,7 @@ from scipy.stats import ranksums
 
 def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     print('Read in WGS data...')
-    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
+    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/maf005'
 
     chromosome = 22
     if assembly == 'GRCh38':

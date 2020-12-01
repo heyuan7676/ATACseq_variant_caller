@@ -33,7 +33,7 @@ def convert_gt_to_number(arri):
     nts = np.unique([a for b in [x.split('/') for x in arri[arri_idx]] for a in b])
     # remove the sites with more than two alleles
     if len(nts) > 2:
-        return [-1] * len(arri)
+	return np.ones(len(arri)) * (-1)
     nts_dict = {}
     i = 0
     for ni in nts:
@@ -73,7 +73,7 @@ def obtain_numerical_gt(gt_dat, samples):
 
 def readin_genotype(Genotype_dir, chromosome, samples):
     ## Read in Genotpye
-    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ')
+    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ', low_memory=False)
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
     gt_dat = gt_dat.replace('./.', '0')
     gt_dat = gt_dat.replace(0, '0')
@@ -82,7 +82,7 @@ def readin_genotype(Genotype_dir, chromosome, samples):
     gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS'] + samples]
 
     # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(gt_dat[samples]) != '0', axis=1) >= 3)[0]
+    valid_snps = np.where(np.sum(np.array(gt_dat[samples]) != '0', axis=1) > 3)[0]
     gt_dat = gt_dat.iloc[valid_snps].reset_index(drop=True)
     
     # remove rows with only one genotype
@@ -135,7 +135,7 @@ def derive_ll(info_dat, samples):
 
 def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples):
     ## Read in Genotpye INFO
-    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d.txt' % (VCF_dir, chromosome), sep=' ')
+    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d.txt' % (VCF_dir, chromosome), sep=' ', low_memory=False)
     info_dat = info_dat[[x for x in info_dat.columns if 'Unnamed' not in x]]
     info_dat = info_dat.set_index('CHR_POS').loc[gt_dat['CHR_POS']].reset_index()
     info_dat = info_dat.replace(0, '0')
@@ -154,7 +154,7 @@ def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples):
 
 def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
     WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
-    WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t')
+    WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', low_memory=False)
     WGS_result = WGS_result.drop_duplicates()
 
     samples = [x for x in WGS_result.columns if x.startswith('HG')]
@@ -173,7 +173,7 @@ def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
     WGS_result = WGS_result.reset_index()
 
     # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(WGS_result[samples]) != '0', axis=1) >= 3)[0]
+    valid_snps = np.where(np.sum(np.array(WGS_result[samples]) != '0', axis=1) > 3)[0]
     WGS_result = WGS_result.iloc[valid_snps].reset_index(drop=True)
 
     # remove rows with only one genotype

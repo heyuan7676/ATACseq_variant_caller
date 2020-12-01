@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     root_dir = '%s/%s' % (ROOT_DIR, alignment_dir)
     VCF_dir = '%s/VCF_files' % root_dir
-    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
+    WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/maf005'
 
     if peak_calling == 'macs2':
     	PEAK_dir = '%s/Peaks' % root_dir
@@ -60,21 +60,30 @@ if __name__ == "__main__":
     [PEAK_DAT, SAMPLES_Peaks] = read_in_peaks(PEAK_dir, CHROMOSOME)
 
     ## align the samples with samples from WGS
+    print('Read in WGS data...')
     WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, '1k_genome_chr22')
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', nrows = 10)
-    SAMPLES_WGS = [x for x in WGS_result.columns if x.startswith('HG')]
-    
+    SAMPLES_WGS  = [x for x in WGS_result.columns if x.startswith('HG')]
     SAMPLES = list(np.intersect1d(SAMPLES_Peaks, SAMPLES_WGS))
-
     print('%d samples are used for QTL analysis' % len(SAMPLES))
 
+    print('Read in genotype data from WGS...')
+    [WGS_DAT, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
+    print('done\n')
+
     ## read in data
+    print('Read in genotype data from ATAC-seq reads...')
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
     GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
+    print('done\n')
 
     if imputation:
+        print('Read in genotype data from imputation...')
         Genotype_dir = '%s/Imputation' % root_dir
         GT_DAT_Imputed = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES)
+	GT_DAT_Imputed = GT_DAT_Imputed.set_index('CHR_POS').loc[np.intersect1d(WGS_DAT['CHR_POS'], GT_DAT_Imputed['CHR_POS'])]
+	GT_DAT_Imputed['CHR_POS'] = GT_DAT_Imputed.index
+  	print('done\n')
 
 	only_atac_reads = set(GT_DAT['CHR_POS']) - set(GT_DAT_Imputed['CHR_POS'])
 	only_imputed = set(GT_DAT_Imputed['CHR_POS']) - set(GT_DAT['CHR_POS'])
@@ -104,6 +113,14 @@ if __name__ == "__main__":
 	print("From ATAC-seq reads: Obtain %d variants in total; discard %d(%.2f) snps' genotype that have different genotype information from atac-seq reads and imputation, and that are not heterozygous" % (len(genotype_merged), len(discard_snps[0]), float(len(discard_snps[0])) / len(genotype_merged) / len(SAMPLES) ))
 
 	GT_DAT = genotype_merged.copy()
+	# again remove rows with only one genotype because of integrating information from the two sources
+	validQTLsnps = np.where([len(set(x))>2 for x in np.array(GT_DAT[samples])])[0]
+	GT_DAT = GT_DAT.iloc[validQTLsnps].reset_index(drop=True)
+
+	#maf = genotype_merged[SAMPLES].apply(lambda x: np.sum(x[x!=-1]) / np.sum(x!=-1) / 2, axis = 1)
+	#maf = maf.apply(lambda x: 1 - np.max([x, 1-x]))
+	#GT_DAT = GT_DAT.iloc[np.where(maf > 0.05)[0]]
+
         # not use weights
         WEIGHT_DAT = GT_DAT.copy()
         WEIGHT_DAT[SAMPLES] = 1
