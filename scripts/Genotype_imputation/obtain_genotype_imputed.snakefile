@@ -8,7 +8,7 @@ IMPUTATION_DIR = os.path.join(BOWTIE_DIR, 'Imputation')
 
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
 INDIVS = INDIVS[0]
-INDIVS.sort()
+INDIVS = INDIVS[:2]
 
 CHROM = config['CHROM']
 
@@ -59,14 +59,18 @@ rule genotype_biallelic_variants:
         header = os.path.join(IMPUTATION_DIR, "{indiv}", "chr22.imputed.GRCh37.genotype.txt"),
         genotype = os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt"),
         snp_ids = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids")
+    params:
+        fn = os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.biallelic.genotype.txt_temp")
     output:
         gt = os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.biallelic.genotype.txt"),
         snps = os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.biallelic.genotype.txt_snps")
     shell:
         """
+        awk -F '\t' "NR==FNR {{id[\$1]; next}} \$1 in id" {input.snp_ids} {input.genotype} | sort -k1,1 >> {params.fn}
+        awk "{{print \$1,\$5}}" {params.fn} | sed 's/ /	/g' > {output.snps}
         head -n1 {input.header} > {output.gt}
-        awk -F '\t' "NR==FNR {{id[\$1]; next}} \$1 in id" {input.snp_ids} {input.genotype} >> {output.gt}
-        awk "{{print \$1,\$5}}" {output.gt} | sed 's/ /	/g' | sort -k1,1 > {output.snps}
+        awk "{{print \$2,\$3,\$4,\$5}}" {params.fn} | sed 's/ /	/g' >> {output.gt}
+        rm {params.fn}
         """
 
 
@@ -93,7 +97,6 @@ rule collect_genotype_union:
         """
         join -e 0 -o auto -a 1 -j 1 {input.snps} {input.gt} | awk "{{print \$2}}" > {output.gt}
         """
-#join -e 0 -o auto -a 1 -j 1 {input.snps} {input.gt} | awk "{{print \$4}}"> {output.gt}
 
 
 rule obtain_matrix:
