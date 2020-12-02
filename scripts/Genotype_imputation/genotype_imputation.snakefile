@@ -19,7 +19,6 @@ if not os.path.isdir(IMPUTATION_DIR):
 
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
 INDIVS = INDIVS[0]
-INDIVS.sort()
 
 for s in INDIVS:
     S_DIR = os.path.join(GRCH37_DIR, s)
@@ -29,7 +28,7 @@ for s in INDIVS:
     if not os.path.isdir(S_DIR):
         os.makedirs(S_DIR)
 
-CHROM = config['CHROM']
+CHROM = config['CHROM'][21:]
 
 '''Collect genoyptes'''
 
@@ -40,8 +39,8 @@ rule all:
     input:
         #expand(os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"), indiv = INDIVS),
         #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"), indiv = INDIVS, chr = CHROM)
-        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz"), indiv = INDIVS, chr = CHROM)
-        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt"), indiv = INDIVS)
+        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz"), indiv = INDIVS, chr = CHROM),
+        #expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"), indiv = INDIVS, chr = CHROM)
 
 
 CHAIN_FN = "/work-zfs/abattle4/heyuan/tools/liftOver/hg38ToHg19.over.chain.gz"
@@ -114,7 +113,9 @@ rule imputation:
     conda:
         "../envs/env_py37.yml"
     shell:
-        'minimac4 --refHaps {input.chr_ref_panel} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 100 --ignoreDuplicates'
+        'minimac4 --refHaps {input.chr_ref_panel} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 100 --ignoreDuplicates --format GT,DS,GP'
+
+
 
 
 
@@ -142,25 +143,11 @@ rule lift_to_GRCh38:
         os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
     output:
         bedfile = temp(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.bed")),
-        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt")
+        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"),
     shell:
         """
         awk "{{print "'"chr"'"\$1,\$2,\$3 = \$2 + 1,\$4}}" {input} | sed "1d" > {output.bedfile}
         cd {LIFTOVER_DIR}
         ./liftOver {output.bedfile} hg19ToHg38.over.chain.gz {output.lifted} unlifted.bed
         """ 
-
-rule merge_chrs:
-    input:
-        header = os.path.join(IMPUTATION_DIR, "{indiv}", "chr22.imputed.GRCh37.genotype.txt"),
-        files = expand(os.path.join(IMPUTATION_DIR, "{{indiv}}", "chr{chr}.imputed.GRCh38.genotype.txt"), chr = CHROM)
-    output:
-        os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt")
-    shell:
-        """
-        head -n1 {input.header} > {output}
-        cat {input.files} | sed 's/chr//g' >> {output}
-        """
-
-
 
