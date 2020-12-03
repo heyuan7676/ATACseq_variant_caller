@@ -28,6 +28,23 @@ def convert_gt_to_number(arri):
 
 
 
+def compute_sens_recall(dat, sample, denominator_arr, group_text):
+    dat.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
+    df = obtain_confusion_matrix(dat, sample = sample)
+    metric_list = [[sample]]
+    metric_list.append(list(np.diag(df)))
+    metric_list.append(list(np.diag(df) / np.sum(df, axis=0)))
+    metric_list.append(list(np.diag(df) / np.sum(df, axis=1)))
+    metric_list.append(list(denominator_arr))
+    metric_list.append(list(np.diag(df) / denominator_arr))
+    metric_list.append([group_text])
+
+    metric_list = [a for b in metric_list for a in b]
+
+    return metric_list 
+
+
+
 
 def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     if restrict_to_SNP:
@@ -44,67 +61,57 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     # variant calling information
     print('Evaluate genotype originally called from ATAC-seq reads...')
-    orginally_called = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False, return_metric = False)
-    performance_original = compute_metric(orginally_called, sample = sample, minDP = minDP)
+    orginally_called = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False)
 
     print('Evalutae genotype imputed')
-    imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, return_metric = False)
+    imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
     N_notExist_in_WGS = sum(imputed['REF_x'].isnull())
 
-    print('Among variants presented in 1000 Genome project phase three')
-    imputed = imputed[~imputed['REF_x'].isnull()]
-    performance_imputed = compute_metric(imputed, sample = sample, minDP = 2)
-
     # compare the two called genotype datasets
-    orginally_called = orginally_called[~orginally_called['REF_y'].isnull()] 
-    imputed = imputed[~imputed['REF_y'].isnull()]
+
+    print('Among variants presented in 1000 Genome project phase three')
+    #orginally_called = orginally_called[~orginally_called['REF_y'].isnull()] 
+    #imputed = imputed[~imputed['REF_y'].isnull()]
 
     combined = orginally_called.merge(imputed, on = ['#CHROM', 'POS'], how = 'outer')
+    combined = combined[~combined['REF_x_x'].isnull()]
+
+    # get number of AA, AB, BB from the genotype data
+    total_number_df = combined[list(combined.columns[:4]) + list(combined.columns[2:4]) + list(combined.columns[6:7])]
+    total_number_df.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
+    total_number_mx = obtain_confusion_matrix(total_number_df, sample)
+    total_number_array = map(float, np.diag(total_number_mx)) 
+
 
     # categorize and evaluate
     in_orignal = combined[(~combined['REF_y_x'].isnull())]
-    in_imputed = combined[(~combined['REF_y_y'].isnull())]
-
-    # called by only one method
     in_orignal = in_orignal[in_orignal.columns[:7]]
-    in_orignal.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
 
+    in_imputed = combined[(~combined['REF_y_y'].isnull())]
     in_imputed = in_imputed[list(in_imputed.columns[:2]) + list(in_imputed.columns[7:])]
-    in_imputed.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
 
     print('Evalutae genotype imputed - captured in originally called variants')
-    performance_in_original = compute_metric(in_orignal, sample = sample, minDP = 2)
+    performance_in_original = compute_sens_recall(in_orignal, sample, total_number_array, 'performance_in_original')
 
     print('Evalutae genotype imputed - captured in imputation')
-    performance_in_imputed = compute_metric(in_imputed, sample = sample, minDP = 2)
+    performance_in_imputed = compute_sens_recall(in_imputed, sample, total_number_array, 'performance_in_imputed')
 
-    performance_in_original.append('performance_in_original')
-    performance_in_imputed.append('performance_in_imputed')
-
-
-    only_in_orignal = combined[combined['REF_y_y'].isnull() & (~combined['REF_y_x'].isnull())]
-    only_in_imputed = combined[combined['REF_y_x'].isnull() & (~combined['REF_y_y'].isnull())]
-    called_in_both = combined[(~combined['REF_y_x'].isnull()) & (~combined['REF_y_y'].isnull())]
-    assert len(called_in_both) + len(only_in_orignal) + len(only_in_imputed)== len(combined)
 
     # called by only one method
-    only_in_orignal = only_in_orignal[only_in_orignal.columns[:7]] 
-    only_in_orignal.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
-
-    only_in_imputed = only_in_imputed[list(only_in_imputed.columns[:2]) + list(only_in_imputed.columns[7:])]
-    only_in_imputed.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
 
     print('Evalutae genotype imputed - captured only in originally called variants')
-    performance_only_in_original = compute_metric(only_in_orignal, sample = sample, minDP = 2)
+    only_in_orignal = combined[combined['REF_y_y'].isnull() & (~combined['REF_y_x'].isnull())]
+    only_in_orignal = only_in_orignal[only_in_orignal.columns[:7]]
+    performance_only_in_original = compute_sens_recall(only_in_orignal, sample, total_number_array, 'performance_only_in_original')
 
     print('Evalutae genotype imputed - captured only in imputation')
-    performance_only_in_imputed = compute_metric(only_in_imputed, sample = sample, minDP = 2) 
-
-    performance_only_in_original.append('performance_only_in_original')
-    performance_only_in_imputed.append('performance_only_in_imputed')
+    only_in_imputed = combined[combined['REF_y_x'].isnull() & (~combined['REF_y_y'].isnull())]
+    only_in_imputed = only_in_imputed[list(only_in_imputed.columns[:2]) + list(only_in_imputed.columns[7:])]
+    performance_only_in_imputed = compute_sens_recall(only_in_imputed, sample, total_number_array, 'performance_only_in_imputed') 
 
     # called by both
     print('Evalutae genotype imputed - captured in both methods')
+    called_in_both = combined[(~combined['REF_y_x'].isnull()) & (~combined['REF_y_y'].isnull())]
     called_in_both = called_in_both.copy()
     called_in_both['CHR_POS'] = called_in_both[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
 
@@ -114,23 +121,27 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     called_in_both['Originally_called'] = true_gt[:, 1]
     called_in_both['Imputed'] = true_gt[:, 2]
 
-    consistent = called_in_both[called_in_both['Originally_called'] == called_in_both['Imputed']]
-
     print('Evalutae genotype imputed - captured consistently from two sources')
-    con_df = called_in_both.set_index('CHR_POS').loc[np.array(consistent['CHR_POS'])]
+    con_df = called_in_both[called_in_both['Originally_called'] == called_in_both['Imputed']]
     con_df = con_df[con_df.columns[:7]]
-    con_df.columns = in_imputed.columns
-    performance_consistent = compute_metric(con_df, sample = sample, minDP = 2)
-    performance_consistent.append('performance_consistent')
+    performance_consistent = compute_sens_recall(con_df, sample, total_number_array, 'performance_consistent')
 
-    performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent])
-    performance.columns = ['Sample', 'minDP',
-                           'N_variants_by_WGS', 'N_variants_by_ATAC', 'N_overlap_variants_by_ATAC', 'Recovered_percentage', 'Correctly_performance_percentage',
-                           'Recall_AA', 'Recall_AB', 'Recall_BB', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'group']
+    print('Evalutae genotype imputed - captured In-consistently from two sources')
+    discrepancy = called_in_both[called_in_both['Originally_called'] != called_in_both['Imputed']]
+    discrepancy_use_original = discrepancy[discrepancy.columns[:7]]
+    performance_discrepancy_use_original = compute_sens_recall(discrepancy_use_original, sample, total_number_array, 'performance_discrepancy_use_original')
 
+    discrepancy_use_imputed = discrepancy[list(discrepancy.columns[:2]) + list(discrepancy.columns[7:12])]
+    performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
+
+
+    # save the performance
+    performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent, performance_discrepancy_use_original, performance_discrepancy_use_imputed])
+    performance.columns = ['Sample', 'Number_AA_called_true', 'Number_AB_called_true', 'Number_BB_called_true', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'group']
     performance.to_csv('performance/combined/performance_one_method_%s%s.txt' % (sample, suffix), sep='\t', index = False)
 
-    discrepancy = called_in_both[called_in_both['Originally_called'] != called_in_both['Imputed']]
+
+    # Explore the directions
     discrepancy = discrepancy.copy()
 
     discrepancy_arr = np.array(discrepancy.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
@@ -149,12 +160,10 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     stats = pd.DataFrame([sample, len(WGS_df), len(combined), N_notExist_in_WGS, len(only_in_orignal), len(called_in_both) - len(discrepancy), len(discrepancy), len(only_in_imputed)]).transpose()
     stats.columns = ["sample", "Variants_in_WGS","called_and_in_WGS", "called(imputed)_not_in_WGS","only_in_orignal", "called_in_both_consistent", "called_in_both_inconsistently", "only_in_imputed"]
-    print(stats)
 
     print('Evalutae genotype imputed - captured in both methods but with disconcordant genotype')
-    discrepancy_metrics = pd.DataFrame([sample, len(AA_BB_to_AB), AA_BB_to_AB_precision_imputed, AA_BB_to_AB_precision_original, len(AB_to_AA_BB), AB_to_AA_BB_precision_imputed, AB_to_AA_BB_precision_original, len(AA_to_BB), AA_to_BB_precision_imputed, AA_to_BB_precision_original]).transpose()
-    discrepancy_metrics.columns = ["sample", "AA_BB_to_AB", "AA_BB_to_AB_precision_imputed", "AA_BB_to_AB_precision_original", "AB_to_AA_BB", "AB_to_AA_BB_precision_imputed", "AB_to_AA_BB_precision_original", "AA_to_BB", "AA_to_BB_precision_imputed", "AA_to_BB_precision_original"]
-    print(discrepancy_metrics)
+    discrepancy_metrics = pd.DataFrame([sample, len(AA_BB_to_AB), AA_BB_to_AB_precision_imputed, AA_BB_to_AB_precision_original, len(AB_to_AA_BB), AB_to_AA_BB_precision_imputed, AB_to_AA_BB_precision_original, len(AA_to_BB), AA_to_BB_precision_imputed, AA_to_BB_precision_original] + total_number_array).transpose()
+    discrepancy_metrics.columns = ["sample", "AA_BB_to_AB", "AA_BB_to_AB_precision_imputed", "AA_BB_to_AB_precision_original", "AB_to_AA_BB", "AB_to_AA_BB_precision_imputed", "AB_to_AA_BB_precision_original", "AA_to_BB", "AA_to_BB_precision_imputed", "AA_to_BB_precision_original", "Number_AA_all", 'Number_AB_all', 'Number_BB_all']
 
     stats.to_csv('performance/combined/called_in_both_%s%s.txt' % (sample, suffix), sep='\t', index = False)
     discrepancy_metrics.to_csv('performance/combined/called_inconsistently_%s%s.txt' % (sample, suffix), sep='\t', index = False)
