@@ -25,7 +25,7 @@ def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     
     WGS_result = pd.DataFrame()
 
-    for chromosome in range(1, 23):
+    for chromosome in range(21, 23):
         WGS_fn = '%s/1k_genome_chr%d.%s' % (WGS_dir, chromosome, suffix)
         token = pd.read_csv(WGS_fn, 
                             comment = '$', 
@@ -45,7 +45,7 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
     root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
     if Imputed:
         SNP_calling_dir = '%s/Imputation/%s' % (root_dir, sample)
-        SNP_called_fn = '%s/%s.imputed.GRCh38.genotype.txt' % (SNP_calling_dir, sample)
+        SNP_called_fn = '%s/%s.imputed.GRCh38.biallelic.genotype.txt' % (SNP_calling_dir, sample)
     else:
         SNP_calling_dir = '%s/Called_GT/minDP%d' % (root_dir, minDP)
         SNP_called_fn = '%s/%s.filtered.genotype.minDP%d.txt' % (SNP_calling_dir, sample, minDP)
