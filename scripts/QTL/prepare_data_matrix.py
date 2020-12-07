@@ -121,6 +121,8 @@ def read_in_WGS_GT(prefix, WGS_dir, samples_peaks = None, snps = None):
 
 def qc_genotype_dat(df, samples, MAC = 3, snps = None):
 
+    df = df.copy()
+    df['POS'] = map(str, np.array(df['POS']))
     df = df.iloc[np.where([x.isdigit() for x in np.array(df['POS'])])[0]]
     df = df.copy()
     df['POS'] = map(int, np.array(df['POS']))
