@@ -38,7 +38,7 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
     QTL_result_peaki = []
     [start, end] = [peaki['START'], peaki['END']]
     
-    SNPs_close = (np.array(gt_numerical_dat['POS']) < end + WINDOW) & (np.array(gt_numerical_dat['POS']) > start - WINDOW)
+    SNPs_close = (np.array(gt_numerical_dat['POS']) < int(end + WINDOW)) & (np.array(gt_numerical_dat['POS']) > int(start - WINDOW))
     SNPs_close = np.where(SNPs_close)[0]
    
     samples = [x for x in gt_numerical_dat.columns if x.startswith('HG')] 
@@ -51,7 +51,7 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
     	pvalues = list(map(compute_QTL_gti_peaki, datapoints)) 
     except:
 	pdb.set_trace()
-    QTL_result_peaki = pd.DataFrame({"PeakID": peaki['PEAK'], "CHR_POS": gt_numerical_dat.iloc[SNPs_close]['CHR_POS'], "P-value": pvalues})
+    QTL_result_peaki = pd.DataFrame({"PeakID": peaki['PEAK'], "Start": peaki['START'], "End": peaki['END'], "CHR_POS": gt_numerical_dat.iloc[SNPs_close]['CHR_POS'], "POS": gt_numerical_dat.iloc[SNPs_close]['POS'], "P-value": pvalues})
 
     return QTL_result_peaki
 

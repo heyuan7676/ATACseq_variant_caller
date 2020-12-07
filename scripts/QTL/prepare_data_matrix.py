@@ -78,20 +78,21 @@ def readin_genotype(Genotype_dir, chromosome, samples, snps = None):
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
     gt_dat = gt_dat.replace('./.', '0')
     gt_dat = gt_dat.replace(0, '0')
-
-    if snps is not None:
-	gt_dat = gt_dat.set_index('CHR_POS').loc[np.intersect1d(snps, gt_dat['CHR_POS'])]   
-	gt_dat['CHR_POS'] = gt_dat.index
-	gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS']  + list(samples)]
-	gt_dat = gt_dat.reset_index(drop = True)
- 
-    [gt_numerical_dat, numbers] = qc_genotype_dat(gt_dat, samples)
+    [gt_numerical_dat, numbers] = qc_genotype_dat(gt_dat, samples, snps = snps)
 
     return [gt_numerical_dat, numbers]
 
 
 
-def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
+def read_in_1k_variants(chromosome):
+    fn = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR//Genotype/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.variants.txt' % chromosome
+    wgs_1k = pd.read_csv(fn, usecols = [0], sep=' ')
+    wgs_1k_snps = np.array(wgs_1k['CHR_POS'])
+    return wgs_1k_snps
+
+
+
+def read_in_WGS_GT(prefix, WGS_dir, samples_peaks = None, snps = None):
     WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', low_memory=False)
     WGS_result = WGS_result.drop_duplicates()
@@ -100,26 +101,36 @@ def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
     WGS_result = WGS_result.replace('./.', '0')
     WGS_result = WGS_result.replace(0, '0')
 
-     # use only the SNPs from called genotypes
+    # use only the SNPs from called genotypes
     if snps is not None:
-        WGS_result = WGS_result.loc[snps]
+        WGS_result = WGS_result.loc[np.intersect1d(snps, np.array(WGS_result.index))]
 
     WGS_result = WGS_result.drop_duplicates()
     WGS_result.columns = ['CHR', 'POS'] + list(WGS_result.columns[2:])
     WGS_result.index.name = 'CHR_POS'
     WGS_result = WGS_result.reset_index()
 
-    samples = list(np.intersect1d(samples_peaks, WGS_result.columns))
+    samples = WGS_result.columns
+    if samples_peaks is not None:
+    	samples = list(np.intersect1d(samples_peaks, samples))
     [WGS_dat, numbers] = qc_genotype_dat(WGS_result, samples)
     
     return [WGS_dat, samples, numbers]
 
 
 
-def qc_genotype_dat(df, samples, MAC = 3):
+def qc_genotype_dat(df, samples, MAC = 3, snps = None):
 
     statistic = [len(df)]
     df = df[list(df.columns[:3]) + samples]
+
+    if snps is not None:
+        df = df.set_index('CHR_POS').loc[np.intersect1d(snps, df['CHR_POS'])]
+        df['CHR_POS'] = df.index
+        df = df[['CHR_POS', 'CHR', 'POS']  + list(samples)]
+        df = df.reset_index(drop = True)
+    print('Remove variants with not exist in 1000 Genome Project with MAF >= 0.05: %d --> %d' % (statistic[0], len(df)))
+    statistic.append(len(df))
 
     # remove variants with one genotype
     validQTLsnps = np.where([len(set(x[x!='0'])) > 1 for x in np.array(df[samples])])[0]
@@ -227,10 +238,10 @@ if __name__ == "__main__":
     WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
 
 
-    [WGS_DAT, SAMPLES_WGS] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir, snps = np.array(GT_DAT['CHR_POS']))
+    [WGS_DAT, SAMPLES_WGS] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, WGS_dir, SAMPLES, snps = np.array(GT_DAT['CHR_POS']))
     SAMPLES = list(np.intersect1d(SAMPLES, SAMPLES_WGS))
 
-    [WGS_dat, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
+    [WGS_dat, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, WGS_dir, SAMPLES)
     WGS_DAT_all = obtain_numerical_gt(WGS_dat_all, SAMPLES)
 
 
