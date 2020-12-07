@@ -59,12 +59,19 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     except:
 	print('%s does not have genotype data' % s)	
 
+
+    # read in variants from 1k Genome
+    oneK_snps = pd.DataFrame()
+    for c in range(1, 23):
+	snps = read_in_1k_variants(c)
+	oneK_snps = oneK_snps.append(snps)
+
     # variant calling information
     print('Evaluate genotype originally called from ATAC-seq reads...')
-    orginally_called = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False)
+    orginally_called = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False)
 
     print('Evalutae genotype imputed')
-    imputed = obtain_atac_variants_df(sample, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
+    imputed = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
     N_notExist_in_WGS = sum(imputed['REF_x'].isnull())
 
     # compare the two called genotype datasets

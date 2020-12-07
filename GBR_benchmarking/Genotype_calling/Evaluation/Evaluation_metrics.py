@@ -5,6 +5,13 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 
+def read_in_1k_variants(chromosome):
+    fn = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR//Genotype/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.variants.txt' % chromosome
+    wgs_1k = pd.read_csv(fn, usecols = [1, 2], sep=' ')
+    return wgs_1k
+
+
+
 def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     print('Read in WGS data...')
     WGS_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/maf005'
@@ -37,7 +44,7 @@ def read_in_WGS_GT(sample, assembly = 'GRCh38'):
     return WGS_result
 
 
-def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_df = True, Imputed = False, minDP = 2):
+def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP = True, return_df = True, Imputed = False, minDP = 2):
 
     print('Read in genotype data called from ATAC-seq reads...')
     WGS_result = WGS_result.copy()
@@ -59,8 +66,13 @@ def obtain_atac_variants_df(sample, WGS_result, restrict_to_SNP = True, return_d
 
     SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', usecols=[0, 1, 2, col_to_read], low_memory=False)
     SNP_called.columns = list(SNP_called.columns[:3]) + ['%s_called' % sample]
+    SNP_called_in1k = SNP_called.merge(oneK_variants, on = ["#CHROM", "POS"])
+    print('Keep variants that have MAF >= 0.05 from 1000 Genome project: %d --> %d variants' % (len(SNP_called), len(SNP_called_in1k)))
+
+    SNP_called = SNP_called_in1k.copy()
     SNP_called['#CHROM'] = SNP_called['#CHROM'].apply(str)
     WGS_result['#CHROM'] = WGS_result['#CHROM'].apply(str)
+
 
     # restrict to SNP
     if restrict_to_SNP:
