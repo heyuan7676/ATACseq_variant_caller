@@ -75,8 +75,6 @@ if __name__ == "__main__":
 
     ####### not use imputation
     #WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
-    WEIGHT_DAT = GT_DAT.copy()
-    WEIGHT_DAT[SAMPLES] = 1
 
     ####### use imputation
     print('Read in genotype data from imputation...')
@@ -122,26 +120,25 @@ if __name__ == "__main__":
     # again remove rows with only one genotype because of integrating information from the two sources
     validQTLsnps = np.where([len(set(x))>2 for x in np.array(GT_MERGED_DAT[SAMPLES])])[0]
     GT_MERGED_DAT = GT_MERGED_DAT.iloc[validQTLsnps].reset_index(drop=True)
+    GT_MERGED_DAT
 
     print('Use called variants to call ca-QTLs')
     print('After integrating variants from imputation, sparsity of the genotype matrix: %.3f --> %.3f\n' % ((np.sum(np.sum(GT_DAT[SAMPLES] == -1)) / len(GT_DAT) / float(len(SAMPLES))), (np.sum(np.sum(GT_MERGED_DAT[SAMPLES] == -1)) / len(GT_MERGED_DAT) / float(len(SAMPLES)))))
-
-    # not use weights
-    WEIGHT_DAT = GT_MERGED_DAT.copy()
-    WEIGHT_DAT[SAMPLES] = 1
-
 
     numbers = [numbers_atac, numbers_imputation]
     numbers = pd.DataFrame(numbers)
     numbers.columns = ["All_variants_called", "Variants_in_1KGenome","Variants_with_more_than_one_genotype", "Variants_with_MAC_>=_3", "Bi-allelic_variants", "Final_list"]
     numbers.index = ['ATAC_reads', 'imputation']
     numbers.to_csv('variants_numbers/CHR%d_%s_variants_Number.txt' % (CHROMOSOME, peak_calling), sep='\t')
-
-
-
+    
     ### Call QTLs
-    for WINDOW in [1000000]:
-        print('Call ca-QTLs for chromosome %d with window = %skb; using peaks from %s' % (CHROMOSOME, str(WINDOW/1000.0), peak_calling))
-        compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_noWeight')
-        compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_MERGED_DAT, WEIGHT_DAT, QTL_dir_imputed, saveSuffix = '_withImputation_noWeight')
+    WINDOW = 1000
+    print('Call ca-QTLs for chromosome %d with window = %skb; using peaks from %s' % (CHROMOSOME, str(WINDOW/1000.0), peak_calling))
+    WEIGHT_DAT = GT_DAT.copy()
+    WEIGHT_DAT[SAMPLES] = 1
+    compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_noWeight')
+
+    WEIGHT_DAT = GT_MERGED_DAT.copy()
+    WEIGHT_DAT[SAMPLES] = 1
+    compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_MERGED_DAT, WEIGHT_DAT, QTL_dir_imputed, saveSuffix = '_withImputation_noWeight')
 
