@@ -69,19 +69,19 @@ if __name__ == "__main__":
     print('%d samples are used for QTL analysis\n' % len(SAMPLES))
 
     print('Read in genotype data from WGS...')
-    [WGS_DAT, _] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
+    [WGS_DAT, _, __] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir)
     print('done\n')
 
     ## read in data
     print('Read in genotype data from ATAC-seq reads...')
     Genotype_dir = '%s/Called_GT/%s' % (root_dir, GT_subDir)
-    GT_DAT = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
+    [GT_DAT, numbers_atac] = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
     print('done\n')
 
     if imputation:
         print('Read in genotype data from imputation...')
         Genotype_dir = '%s/Imputation' % root_dir
-        GT_DAT_Imputed = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
+        [GT_DAT_Imputed, numbers_imputation] = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = np.array(WGS_DAT['CHR_POS']))
   	print('done\n')
 
 	only_atac_reads = set(GT_DAT['CHR_POS']) - set(GT_DAT_Imputed['CHR_POS'])
@@ -130,18 +130,31 @@ if __name__ == "__main__":
         # not use weights
         WEIGHT_DAT = GT_MERGED_DAT.copy()
         WEIGHT_DAT[SAMPLES] = 1
+
+	print('Use called variants to call ca-QTLs')
+	print('After integrating variants from imputation, sparsity of the genotype matrix: %.3f --> %.3f' % ((np.sum(np.sum(GT_DAT[SAMPLES] == -1)) / len(GT_DAT) / float(len(SAMPLES))), (np.sum(np.sum(GT_MERGED_DAT[SAMPLES] == -1)) / len(GT_MERGED_DAT) / float(len(SAMPLES)))))
         compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_MERGED_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_withImputation_noWeight')
+
+        [WGS_DAT, SAMPLES, numbers_WGS_called] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir, snps = np.array(GT_MERGED_DAT['CHR_POS']))
 
     else:
         # use weights     
         WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
         compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir)
+	[WGS_DAT, SAMPLES, numbers_WGS_called] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir, snps = np.array(GT_DAT['CHR_POS']))
 
     ### Compute QTLs using genotype from WGS
-    [WGS_DAT, SAMPLES] = read_in_WGS_GT('1k_genome_chr%d' % CHROMOSOME, SAMPLES, WGS_dir, snps = np.array(GT_DAT['CHR_POS']))
     WEIGHT_DAT = WGS_DAT.copy()
     WEIGHT_DAT[SAMPLES] = 1
 
     compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, WGS_DAT, WEIGHT_DAT, QTL_dir, saveSuffix='_withImputation_realGT')
+    numbers = [numbers_atac, numbers_imputation, numbers_WGS_called]
+    numbers = pd.DataFrame(numbers)
+    numbers.columns = ["All_variants", "Variants_with_more_than_one_genotype", "Variants_with_MAC_>=_3", "Bi-allelic_variants", "Final_list"]
+    numbers.index = ['ATAC_reads', 'imputation', 'genotype']
+    numbers.to_csv('variants_numbers/CHR%d_WINDOW_%skb_variants_Number.txt' % (CHROMOSOME, str(WINDOW/1000.0)), sep='\t')
+
+
+
 
 

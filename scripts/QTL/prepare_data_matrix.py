@@ -4,7 +4,7 @@ import os
 import pdb
 import numpy as np
 import pandas as pd
-
+from collections import Counter
 
 def readin_peak_samples(PEAK_dir):
     peak_dat = pd.read_csv('%s/peak_by_sample_matrix_RPKM.txt' % (PEAK_dir), sep=' ', nrows=10)
@@ -85,9 +85,9 @@ def readin_genotype(Genotype_dir, chromosome, samples, snps = None):
 	gt_dat = gt_dat[['CHR_POS', 'CHR', 'POS']  + list(samples)]
 	gt_dat = gt_dat.reset_index(drop = True)
  
-    gt_numerical_dat = qc_genotype_dat(gt_dat, samples)
+    [gt_numerical_dat, numbers] = qc_genotype_dat(gt_dat, samples)
 
-    return gt_numerical_dat
+    return [gt_numerical_dat, numbers]
 
 
 
@@ -110,37 +110,44 @@ def read_in_WGS_GT(prefix, samples_peaks, WGS_dir, snps = None):
     WGS_result = WGS_result.reset_index()
 
     samples = list(np.intersect1d(samples_peaks, WGS_result.columns))
-    WGS_dat = qc_genotype_dat(WGS_result, samples)
+    [WGS_dat, numbers] = qc_genotype_dat(WGS_result, samples)
     
-    return [WGS_dat, samples]
+    return [WGS_dat, samples, numbers]
 
 
 
-def qc_genotype_dat(df, samples):
+def qc_genotype_dat(df, samples, MAC = 3):
 
+    statistic = [len(df)]
     df = df[list(df.columns[:3]) + samples]
-
-    # remove rows with less than 3 samples
-    valid_snps = np.where(np.sum(np.array(df[samples]) != '0', axis=1) >= 3)[0]
-    print('Remove variants with data available in less than 3 samples: %d --> %d' % (len(df), len(valid_snps)))
-    df = df.iloc[valid_snps].reset_index(drop=True)
 
     # remove variants with one genotype
     validQTLsnps = np.where([len(set(x[x!='0'])) > 1 for x in np.array(df[samples])])[0]
     print('Remove variants with one genotype: %d --> %d' % (len(df), len(validQTLsnps)))
+    statistic.append(len(validQTLsnps))
     df = df.iloc[validQTLsnps].reset_index(drop=True)
-   
+
+    # Filter on number of each allele > 3
+    all_alleles = [Counter('/'.join(gt_snpi).replace('0/', '').split('/')).values() for gt_snpi in np.array(df[samples])]
+    min_allele_count = [min(x) for x in all_alleles]
+    valid_snps = np.where(np.array(min_allele_count) >= MAC)[0]
+    print('Remove variants with minor allele count < %d: %d --> %d' % (MAC, len(df), len(valid_snps)))
+    statistic.append(len(valid_snps))
+    df = df.iloc[valid_snps].reset_index(drop=True)
+
     # in this step, remove the sites with more than two alleles, keep biallelic variants 
     print('Convert genotype to numerical values')
     df_gt = obtain_numerical_gt(df, samples)
     print('Keep variants with bi-allelic genotype: %d --> %d' % (len(df), len(df_gt)))
+    statistic.append(len(df_gt))
     
     # again remove rows with only one genotype (ie. A/T and T/A)
     validQTLsnps = np.where([len(set(x[x != (-1)])) >= 2 for x in np.array(df_gt[samples])])[0]
     print('Remove variants with one genotype: %d --> %d' % (len(df_gt), len(validQTLsnps)))
     df_gt = df_gt.iloc[validQTLsnps].reset_index(drop=True)
+    statistic.append(len(df_gt))
 
-    return df_gt 
+    return [df_gt, statistic] 
 
 
 

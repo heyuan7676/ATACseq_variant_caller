@@ -47,7 +47,10 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
     aa = np.repeat(np.array(peaki[samples])[np.newaxis], len(bb), axis=0)
 
     datapoints = zip(aa,bb,cc)
-    pvalues = list(map(compute_QTL_gti_peaki, datapoints)) 
+    try:
+    	pvalues = list(map(compute_QTL_gti_peaki, datapoints)) 
+    except:
+	pdb.set_trace()
     QTL_result_peaki = pd.DataFrame({"PeakID": peaki['PEAK'], "CHR_POS": gt_numerical_dat.iloc[SNPs_close]['CHR_POS'], "P-value": pvalues})
 
     return QTL_result_peaki
