@@ -66,12 +66,13 @@ def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP =
 
     SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', usecols=[0, 1, 2, col_to_read], low_memory=False)
     SNP_called.columns = list(SNP_called.columns[:3]) + ['%s_called' % sample]
-    SNP_called_in1k = SNP_called.merge(oneK_variants, on = ["#CHROM", "POS"])
-    print('Keep variants that have MAF >= 0.05 from 1000 Genome project: %d --> %d variants' % (len(SNP_called), len(SNP_called_in1k)))
-
-    SNP_called = SNP_called_in1k.copy()
     SNP_called['#CHROM'] = SNP_called['#CHROM'].apply(str)
     WGS_result['#CHROM'] = WGS_result['#CHROM'].apply(str)
+    oneK_variants['#CHROM'] = oneK_variants['#CHROM'].apply(str)
+
+    SNP_called_in1k = SNP_called.merge(oneK_variants, on = ["#CHROM", "POS"])
+    print('Keep variants that have MAF >= 0.05 from 1000 Genome project: %d --> %d variants' % (len(SNP_called), len(SNP_called_in1k)))
+    SNP_called = SNP_called_in1k.copy()
 
 
     # restrict to SNP

@@ -32,11 +32,15 @@ def compute_sens_recall(dat, sample, denominator_arr, group_text):
     dat.columns = ['#CHROM', 'POS', 'REF_x', sample, 'REF_y', '%s_called' % sample, '%s_makeup' % sample]
     df = obtain_confusion_matrix(dat, sample = sample)
     metric_list = [[sample]]
-    metric_list.append(list(np.diag(df)))
+    metric_list.append(list(np.sum(df, axis=0)))
     metric_list.append(list(np.diag(df) / np.sum(df, axis=0)))
     metric_list.append(list(np.diag(df) / np.sum(df, axis=1)))
     metric_list.append(list(denominator_arr))
     metric_list.append(list(np.diag(df) / denominator_arr))
+
+    metric_list.append([np.sum(np.sum(df))])
+    metric_list.append([np.sum(np.diag(df)) / float(np.sum(np.sum(df)))])
+    metric_list.append([np.sum(np.diag(df)) / float(np.sum(denominator_arr))])
     metric_list.append([group_text])
 
     metric_list = [a for b in metric_list for a in b]
@@ -142,12 +146,6 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
 
 
-    # save the performance
-    performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent, performance_discrepancy_use_original, performance_discrepancy_use_imputed])
-    performance.columns = ['Sample', 'Number_AA_called_true', 'Number_AB_called_true', 'Number_BB_called_true', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'group']
-    performance.to_csv('performance/combined/performance_one_method_%s%s.txt' % (sample, suffix), sep='\t', index = False)
-
-
     # Explore the directions
     discrepancy = discrepancy.copy()
 
@@ -174,6 +172,16 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     stats.to_csv('performance/combined/called_in_both_%s%s.txt' % (sample, suffix), sep='\t', index = False)
     discrepancy_metrics.to_csv('performance/combined/called_inconsistently_%s%s.txt' % (sample, suffix), sep='\t', index = False)
+
+    ## test the overall performance
+    combine_all = only_in_orignal.append(only_in_imputed, ignore_index = True).append(con_df, ignore_index = True).append(discrepancy_use_imputed.iloc[np.where(['_1.0' in x for x in discrepancy_arr])[0]], ignore_index = True).append(discrepancy_use_imputed.iloc[np.where(['1.0' not in x for x in discrepancy_arr])[0]], ignore_index = True) 
+    performance_overall = compute_sens_recall(combine_all, sample, total_number_array, 'performance_overall')
+    
+    # save the performance
+    performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent, performance_discrepancy_use_original, performance_discrepancy_use_imputed, performance_overall])
+    performance.columns = ['Sample', 'Number_AA_called', 'Number_AB_called', 'Number_BB_called', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'Number_overall', 'Precision_overall', 'Recall_overall', 'group']
+    performance.to_csv('performance/combined/performance_one_method_%s%s.txt' % (sample, suffix), sep='\t', index = False)
+
 
 
 if __name__ == '__main__':
