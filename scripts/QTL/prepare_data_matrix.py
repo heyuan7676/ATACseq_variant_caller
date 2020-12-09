@@ -67,13 +67,16 @@ def obtain_numerical_gt(gt_dat, samples):
     gt_numerical_dat['CHR'] = gt_dat['CHR']
     gt_numerical_dat['POS'] = gt_dat['POS']
     gt_numerical_dat = gt_numerical_dat[['CHR_POS', 'CHR', 'POS']  + list(samples)]
-    
+   
+    gt_numerical_dat = gt_numerical_dat.iloc[np.where(~gt_numerical_dat['CHR_POS'].duplicated())[0]]
+ 
     return gt_numerical_dat
     
 
 
 def readin_genotype(Genotype_dir, chromosome, samples, snps = None):
     ## Read in Genotpye
+
     gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ', low_memory=False)
     gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
     gt_dat = gt_dat.replace('./.', '0')
@@ -204,7 +207,7 @@ def derive_ll(info_dat, samples):
 
 def readin_genotype_info(gt_dat, VCF_dir, chromosome, samples):
     ## Read in Genotpye INFO
-    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d.txt' % (VCF_dir, chromosome), sep=' ', low_memory=False)
+    info_dat = pd.read_csv('%s/gt_info_by_sample_matrix_chr%d_atac.txt' % (VCF_dir, chromosome), sep=' ', low_memory=False)
     info_dat = info_dat[[x for x in info_dat.columns if 'Unnamed' not in x]]
     info_dat = info_dat.set_index('CHR_POS').loc[gt_dat['CHR_POS']].reset_index()
     info_dat = info_dat.replace(0, '0')

@@ -38,8 +38,7 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
     QTL_result_peaki = []
     [start, end] = [peaki['START'], peaki['END']]
     
-    SNPs_close = (np.array(gt_numerical_dat['POS']) < int(end + WINDOW)) & (np.array(gt_numerical_dat['POS']) > int(start - WINDOW))
-    SNPs_close = np.where(SNPs_close)[0]
+    SNPs_close = np.where((np.array(gt_numerical_dat['POS']) < int(end + WINDOW)) * (np.array(gt_numerical_dat['POS']) > int(start - WINDOW)))[0]
    
     samples = [x for x in gt_numerical_dat.columns if x.startswith('HG')] 
     bb = np.array(gt_numerical_dat.iloc[SNPs_close][samples])

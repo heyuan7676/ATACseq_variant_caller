@@ -22,6 +22,7 @@ if __name__ == "__main__":
     ROOT_DIR = sys.argv[1]  # /work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/
     CHROMOSOME = int(sys.argv[2])
     peak_calling = sys.argv[3]
+    WINDOW = int(sys.argv[4])
 
     alignment_dir = 'alignment_bowtie' # alignment_subsample_0.5
     GT_subDir = 'minDP2'
@@ -73,8 +74,8 @@ if __name__ == "__main__":
     [GT_DAT, numbers_atac] = readin_genotype(Genotype_dir = Genotype_dir, chromosome=CHROMOSOME, samples=SAMPLES, snps = oneK_variants)
     print('done\n')
 
-    ####### not use imputation
-    #WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
+    ####### use to decide whether to replace with imputated calls
+    WEIGHT_DAT = readin_genotype_info(gt_dat=GT_DAT, VCF_dir = VCF_dir, chromosome=CHROMOSOME, samples=SAMPLES)
 
     ####### use imputation
     print('Read in genotype data from imputation...')
@@ -91,12 +92,19 @@ if __name__ == "__main__":
 
     # deal with in-consistent calls from the two sources
     GT_DAT_both = GT_DAT.set_index('CHR_POS').loc[both]
+    GT_WEIGHT_DAT_both = WEIGHT_DAT.set_index('CHR_POS').loc[both]
     imputed_both = GT_DAT_Imputed.set_index('CHR_POS').loc[both]
+
+
     genotype_both = np.array(imputed_both[SAMPLES])
 
     # remove genotypes that: 1). called by no method a heterozygous site; 2). called differently by imputed data and the ATAC-seq reads
-    discard_snps = np.where((np.array(GT_DAT_both[SAMPLES]) != np.array(imputed_both[SAMPLES])) * (np.array(GT_DAT_both[SAMPLES]) != 1) * (np.array(imputed_both[SAMPLES]) != 1))
+    discard_snps = np.where((np.array(GT_DAT_both[SAMPLES]) != np.array(imputed_both[SAMPLES])) * (np.array(GT_DAT_both[SAMPLES]) != 1) * (np.array(imputed_both[SAMPLES]) != 1) * (np.array(GT_DAT_both[SAMPLES]) != -1))
     genotype_both[discard_snps] = -1
+
+    # listen to valid genotype calls
+    valid_genotype_calls = np.where(np.array(GT_WEIGHT_DAT_both[SAMPLES]) > 0.5)
+    genotype_both[valid_genotype_calls] = np.array(GT_DAT_both[SAMPLES])[valid_genotype_calls]
 	
     # use heterozygous calls from ATAC-seq reads
     ht_calls_from_reads = np.where((np.array(imputed_both[SAMPLES]) != 1) & (np.array(GT_DAT_both[SAMPLES]) == 1))
@@ -110,7 +118,7 @@ if __name__ == "__main__":
     genotype_both = genotype_both[GT_DAT_imputed.columns]
     assert np.sum(np.array(GT_DAT_both)[np.where(np.array(genotype_both)==-1)] == 1)  == 0
     assert np.sum(np.array(imputed_both)[np.where(np.array(genotype_both)==-1)] == 1)  == 0
-	
+
     GT_MERGED_DAT = GT_DAT_atac.append(GT_DAT_imputed).append(genotype_both)
     GT_MERGED_DAT['CHR_POS'] = GT_MERGED_DAT.index
 
@@ -120,7 +128,6 @@ if __name__ == "__main__":
     # again remove rows with only one genotype because of integrating information from the two sources
     validQTLsnps = np.where([len(set(x))>2 for x in np.array(GT_MERGED_DAT[SAMPLES])])[0]
     GT_MERGED_DAT = GT_MERGED_DAT.iloc[validQTLsnps].reset_index(drop=True)
-    GT_MERGED_DAT
 
     print('Use called variants to call ca-QTLs')
     print('After integrating variants from imputation, sparsity of the genotype matrix: %.3f --> %.3f\n' % ((np.sum(np.sum(GT_DAT[SAMPLES] == -1)) / len(GT_DAT) / float(len(SAMPLES))), (np.sum(np.sum(GT_MERGED_DAT[SAMPLES] == -1)) / len(GT_MERGED_DAT) / float(len(SAMPLES)))))
@@ -129,16 +136,30 @@ if __name__ == "__main__":
     numbers = pd.DataFrame(numbers)
     numbers.columns = ["All_variants_called", "Variants_in_1KGenome","Variants_with_more_than_one_genotype", "Variants_with_MAC_>=_3", "Bi-allelic_variants", "Final_list"]
     numbers.index = ['ATAC_reads', 'imputation']
-    numbers.to_csv('variants_numbers/CHR%d_%s_variants_Number.txt' % (CHROMOSOME, peak_calling), sep='\t')
-    
+    numbers.to_csv('variants_numbers/CHR%d_WINDOW_%skb_%s_variants_Number.txt' % (CHROMOSOME, str(WINDOW/1000.0), peak_calling), sep='\t')
+   
     ### Call QTLs
-    WINDOW = 1000
     print('Call ca-QTLs for chromosome %d with window = %skb; using peaks from %s' % (CHROMOSOME, str(WINDOW/1000.0), peak_calling))
     WEIGHT_DAT = GT_DAT.copy()
     WEIGHT_DAT[SAMPLES] = 1
-    compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_noWeight')
+    #compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_DAT, WEIGHT_DAT, QTL_dir, saveSuffix = '_noWeight')
 
     WEIGHT_DAT = GT_MERGED_DAT.copy()
     WEIGHT_DAT[SAMPLES] = 1
     compute_QTLs(CHROMOSOME, WINDOW, PEAK_DAT, GT_MERGED_DAT, WEIGHT_DAT, QTL_dir_imputed, saveSuffix = '_withImputation_noWeight')
+
+    save_matrix = True
+    if save_matrix:
+        save_dir = os.path.join(QTL_dir, 'Save_Matrix')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        GT_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d.txt' % (save_dir, CHROMOSOME), sep='\t', index = False)
+        GT_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d_loc.bed' % (save_dir, CHROMOSOME), sep='\t', index=False)
+
+
+        save_dir = os.path.join(QTL_dir_imputed, 'Save_Matrix')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        GT_MERGED_DAT[['CHR_POS'] + SAMPLES].to_csv('%s/called_genotypes_chromosome%d.txt' % (save_dir, CHROMOSOME), sep='\t', index = False)
+        GT_MERGED_DAT[['CHR_POS','CHR', 'POS']].to_csv('%s/called_genotypes_chromosome%d_loc.bed' % (save_dir, CHROMOSOME), sep='\t', index=False)
 
