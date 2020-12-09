@@ -98,34 +98,8 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     total_number_array = map(float, np.diag(total_number_mx)) 
 
 
-    # categorize and evaluate
-    in_orignal = combined[(~combined['REF_y_x'].isnull())]
-    in_orignal = in_orignal[in_orignal.columns[:7]]
-
-    in_imputed = combined[(~combined['REF_y_y'].isnull())]
-    in_imputed = in_imputed[list(in_imputed.columns[:2]) + list(in_imputed.columns[7:])]
-
-    print('Evalutae genotype imputed - captured in originally called variants')
-    performance_in_original = compute_sens_recall(in_orignal, sample, total_number_array, 'performance_in_original')
-
-    print('Evalutae genotype imputed - captured in imputation')
-    performance_in_imputed = compute_sens_recall(in_imputed, sample, total_number_array, 'performance_in_imputed')
-
-
-    # called by only one method
-
-    print('Evalutae genotype imputed - captured only in originally called variants')
-    only_in_orignal = combined[combined['REF_y_y'].isnull() & (~combined['REF_y_x'].isnull())]
-    only_in_orignal = only_in_orignal[only_in_orignal.columns[:7]]
-    performance_only_in_original = compute_sens_recall(only_in_orignal, sample, total_number_array, 'performance_only_in_original')
-
-    print('Evalutae genotype imputed - captured only in imputation')
-    only_in_imputed = combined[combined['REF_y_x'].isnull() & (~combined['REF_y_y'].isnull())]
-    only_in_imputed = only_in_imputed[list(only_in_imputed.columns[:2]) + list(only_in_imputed.columns[7:])]
-    performance_only_in_imputed = compute_sens_recall(only_in_imputed, sample, total_number_array, 'performance_only_in_imputed') 
-
     # called by both
-    print('Evalutae genotype imputed - captured in both methods')
+    print('Evalutae genotype imputed - captured In-consistently from two sources')
     called_in_both = combined[(~combined['REF_y_x'].isnull()) & (~combined['REF_y_y'].isnull())]
     called_in_both = called_in_both.copy()
     called_in_both['CHR_POS'] = called_in_both[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
@@ -136,23 +110,18 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     called_in_both['Originally_called'] = true_gt[:, 1]
     called_in_both['Imputed'] = true_gt[:, 2]
 
-    print('Evalutae genotype imputed - captured consistently from two sources')
-    con_df = called_in_both[called_in_both['Originally_called'] == called_in_both['Imputed']]
-    con_df = con_df[con_df.columns[:7]]
-    performance_consistent = compute_sens_recall(con_df, sample, total_number_array, 'performance_consistent')
-
-    print('Evalutae genotype imputed - captured In-consistently from two sources')
     discrepancy = called_in_both[called_in_both['Originally_called'] != called_in_both['Imputed']]
     discrepancy_use_original = discrepancy[discrepancy.columns[:7]]
-    performance_discrepancy_use_original = compute_sens_recall(discrepancy_use_original, sample, total_number_array, 'performance_discrepancy_use_original')
-
     discrepancy_use_imputed = discrepancy[list(discrepancy.columns[:2]) + list(discrepancy.columns[7:12])]
-    performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
 
+    pdb.set_trace()
+    discrepancy = discrepancy.merge(weight_dat, on = ['#CHROM', 'POS'])
+
+    performance_discrepancy_use_original = compute_sens_recall(discrepancy_use_original, sample, total_number_array, 'performance_discrepancy_use_original')
+    performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
 
     # Explore the directions
     discrepancy = discrepancy.copy()
-
     discrepancy_arr = np.array(discrepancy.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
 
     AA_BB_to_AB = discrepancy.iloc[np.where(['_1.0' in x for x in discrepancy_arr])[0]]
@@ -174,24 +143,10 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     discrepancy_metrics = pd.DataFrame([sample, len(AA_BB_to_AB), AA_BB_to_AB_precision_imputed, AA_BB_to_AB_precision_original, len(AB_to_AA_BB), AB_to_AA_BB_precision_imputed, AB_to_AA_BB_precision_original, len(AA_to_BB), AA_to_BB_precision_imputed, AA_to_BB_precision_original] + total_number_array).transpose()
     discrepancy_metrics.columns = ["sample", "AA_BB_to_AB", "AA_BB_to_AB_precision_imputed", "AA_BB_to_AB_precision_original", "AB_to_AA_BB", "AB_to_AA_BB_precision_imputed", "AB_to_AA_BB_precision_original", "AA_to_BB", "AA_to_BB_precision_imputed", "AA_to_BB_precision_original", "Number_AA_all", 'Number_AB_all', 'Number_BB_all']
 
-    stats.to_csv('performance/combined/called_in_both_%s%s.txt' % (sample, suffix), sep='\t', index = False)
-    discrepancy_metrics.to_csv('performance/combined/called_inconsistently_%s%s.txt' % (sample, suffix), sep='\t', index = False)
-
-    ## test the overall performance
-    combine_all = only_in_orignal.append(only_in_imputed, ignore_index = True).append(con_df, ignore_index = True).append(discrepancy_use_imputed.iloc[np.where(['_1.0' in x for x in discrepancy_arr])[0]], ignore_index = True).append(discrepancy_use_original.iloc[np.where(['1.0_' in x for x in discrepancy_arr])[0]], ignore_index = True) 
-    performance_overall = compute_sens_recall(combine_all, sample, total_number_array, 'performance_overall')
-   
-    # combine PP information
-    weight_dat_subset = weight_dat.loc[discrepancy['CHR_POS']]
-    use_imputed_HT = np.intersect1d(np.where(['_1.0' in x for x in discrepancy_arr])[0], np.where(weight_dat_subset['GQ'] == 0)[0])
-    use_gc = np.unique(list(np.where(['1.0_' in x for x in discrepancy_arr])[0]) + list(np.where(weight_dat_subset['GQ'] > 0)[0]))
-    combine_all = only_in_orignal.append(only_in_imputed, ignore_index = True).append(con_df, ignore_index = True).append(discrepancy_use_imputed.iloc[use_imputed_HT], ignore_index = True).append(discrepancy_use_original.iloc[use_gc], ignore_index = True)
-    performance_overall_withPP = compute_sens_recall(combine_all, sample, total_number_array, 'performance_overall_withPP')
- 
     # save the performance
-    performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent, performance_discrepancy_use_original, performance_discrepancy_use_imputed, performance_overall, performance_overall_withPP])
+    performance = pd.DataFrame([performance_discrepancy_use_original, performance_discrepancy_use_imputed, performance_overall, performance_overall_withPP])
     performance.columns = ['Sample', 'Number_AA_called', 'Number_AB_called', 'Number_BB_called', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'Number_variants_called', 'Precision_overall', 'Recall_overall', 'group']
-    performance.to_csv('performance/combined/performance_one_method_%s%s_usePP.txt' % (sample, suffix), sep='\t', index = False)
+    #performance.to_csv('performance/combined/performance_one_method_%s%s_usePP.txt' % (sample, suffix), sep='\t', index = False)
 
 
 

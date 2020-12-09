@@ -5,6 +5,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 
+
+
+
+
 def read_in_1k_variants(chromosome):
     fn = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR//Genotype/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.variants.txt' % chromosome
     wgs_1k = pd.read_csv(fn, usecols = [1, 2], sep=' ')
@@ -57,6 +61,13 @@ def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP =
         SNP_calling_dir = '%s/Called_GT/minDP%d' % (root_dir, minDP)
         SNP_called_fn = '%s/%s.filtered.genotype.minDP%d.txt' % (SNP_calling_dir, sample, minDP)
 
+    try:
+	intersection_SNPs = pd.read_csv('%s_merge_with_WGS.txt' % SNP_called_fn, sep='\t')
+	print("done\n")
+	return intersection_SNPs
+    except:
+	print("Process genotype data")
+
     SNP_called = pd.read_csv(SNP_called_fn, comment="$", sep='\t', nrows = 10)
     try:
         col_to_read = np.where([sample in x for x in SNP_called.columns])[0][0]
@@ -102,6 +113,8 @@ def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP =
     match_idx = np.where(intersection_SNPs['%s_called' % sample] == intersection_SNPs['%s_makeup' % sample])[0]
     need_to_flip = np.intersect1d(HT, match_idx)
     intersection_SNPs.loc[need_to_flip,sample] = intersection_SNPs.loc[need_to_flip,'%s_makeup' % sample]
+
+    intersection_SNPs.to_csv('%s_merge_with_WGS.txt' % SNP_called_fn, sep='\t', index = False)
 
     print("done\n")
 
@@ -192,9 +205,9 @@ def obtain_confusion_matrix(intersection_df, sample):
     return confusion_matrix
 
 
-def readin_INFO(sample):
-
-    sample_info = pd.read_csv('%s/%s.filtered.recode.INFO.vcf' % (variant_calling_dir, sample),sep='\t', header = None)
+def readin_INFO(sample, VCF_dir):
+    VCF_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/'
+    sample_info = pd.read_csv('%s/%s.filtered.recode.INFO.vcf' % (VCF_dir, sample),sep='\t', header = None)
     sample_info.columns=['#CHROM', 'POS', 'DP', 'PL', 'GQ']
     #sample_info['#CHROM'] = [int(x.replace('chr', '')) for x in sample_info['#CHROM']]
 
