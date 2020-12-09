@@ -4,9 +4,9 @@ from statsmodels.stats.multitest import multipletests
 import sys
 import pdb
 
-def readin_one_chromosome(QTL_dir, file_suffix):
+def readin_chromosomes(QTL_dir, file_suffix):
     df = pd.DataFrame()
-    for chromosome in range(1,2):
+    for chromosome in range(1,23):
 	fn1 = '%s/CHR%d_%s' % (QTL_dir, chromosome, file_suffix)
 	try:
 	    dfi = pd.read_csv(fn1, sep='\t')
@@ -14,7 +14,10 @@ def readin_one_chromosome(QTL_dir, file_suffix):
 	    print('Result for chr%d not exist' % chromosome)
 	    continue
 	df = df.append(dfi)
+
+    df = df[~df['P-value'].isnull()]
     df_sig = df.loc[df.groupby('PeakID')["P-value"].idxmin()]
+    df_sig = df_sig.copy()
     df_sig['BH_pvalue'] = multipletests(df_sig['P-value'], method='fdr_bh')[1]
     df_sig = df_sig[df_sig['BH_pvalue'] < 0.05]
     return [df[['PeakID', 'CHR_POS', 'P-value']], df_sig[['PeakID', 'CHR_POS', 'P-value', 'BH_pvalue']]]
@@ -22,9 +25,9 @@ def readin_one_chromosome(QTL_dir, file_suffix):
 
 def readin_both_results(QTL_dir, window, suffix):
     
-    [real_QTL, real_QTL_sig] = readin_one_chromosome(QTL_dir, 'caQTLs_WINDOW_%skb%s.txt' % (str(window/1000.0), '_realGT_all'))
-    [call_QTL, call_QTL_sig] = readin_one_chromosome(QTL_dir, 'caQTLs_WINDOW_%skb%s.txt' % (str(window/1000.0), suffix))
-    [call_QTL_imputed, call_QTL_imputed_sig] = readin_one_chromosome('%s/Imputation' % QTL_dir, 'caQTLs_WINDOW_%skb_withImputation%s.txt' % (str(window/1000.0), suffix))
+    [real_QTL, real_QTL_sig] = readin_chromosomes(QTL_dir, 'caQTLs_WINDOW_%skb%s.txt' % (str(window/1000.0), '_realGT_all'))
+    [call_QTL, call_QTL_sig] = readin_chromosomes(QTL_dir, 'caQTLs_WINDOW_%skb%s.txt' % (str(window/1000.0), suffix))
+    [call_QTL_imputed, call_QTL_imputed_sig] = readin_chromosomes('%s/Imputation' % QTL_dir, 'caQTLs_WINDOW_%skb_withImputation%s.txt' % (str(window/1000.0), suffix))
 
     call_QTL.columns = ['PeakID', 'CHR_POS', 'Pvalue_genotype_caller']
     call_QTL_sig.columns = ['PeakID', 'CHR_POS', 'Pvalue_genotype_caller', 'BH_pvalue_genotype_caller']
@@ -79,6 +82,7 @@ def obtain_metrics(peak_calling, window, suffix = '_noWeight'):
 
     precision_caller = len(np.intersect1d(set1, set2)) / float(len(set2))
     recall_caller = len(np.intersect1d(set1, set2)) / float(len(set1))
+
     precision_imputation = len(np.intersect1d(set1, set3) )/ float(len(set3))
     recall_imputation = len(np.intersect1d(set1, set3)) / float(len(set1))
 
@@ -89,6 +93,15 @@ def obtain_metrics(peak_calling, window, suffix = '_noWeight'):
 
 
 if __name__ == '__main__':
-    for WINDOW in [0, 1000]:
-    	result = obtain_metrics('macs2', WINDOW)
-	print(result)
+    WINDOW = int(sys.argv[1])
+    peak_calling = 'macs2'
+    result = obtain_metrics(peak_calling, WINDOW)
+    result = pd.DataFrame(result).transpose()
+    result.columns = ["peak_calling", "window", "r2_caller", "r2_imputation", "precision_caller", "precision_imputation", "recall_caller", "recall_imputation"]
+    result.to_csv('Evaluation_metrics/%s_minDP2_%skb_withImputation_noWeight.txt' % (peak_calling, str(WINDOW/1000.0)), sep='\t')
+
+
+
+
+
+
