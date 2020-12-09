@@ -63,6 +63,7 @@ def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP =
 
     try:
 	intersection_SNPs = pd.read_csv('%s_merge_with_WGS.txt' % SNP_called_fn, sep='\t')
+	intersection_SNPs['#CHROM'] = intersection_SNPs['#CHROM'].apply(str)
 	print("done\n")
 	return intersection_SNPs
     except:

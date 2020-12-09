@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 from Evaluation_metrics import *
+sys.path.append('/work-zfs/abattle4/heyuan/Variant_calling/scripts/QTL')
+from prepare_data_matrix import achieve_ll
 
 
 def convert_gt_to_number(arri):
@@ -49,6 +51,22 @@ def compute_sens_recall(dat, sample, denominator_arr, group_text):
 
 
 
+def AA_AB_BB_switch(discrepancy, discrepancy_arr):
+    AA_BB_to_AB = discrepancy.iloc[np.where(['_1.0' in x for x in discrepancy_arr])[0]]
+    AA_BB_to_AB_precision_imputed  = np.sum(AA_BB_to_AB['Imputed'] == AA_BB_to_AB['True']) / float(len(AA_BB_to_AB))
+    AA_BB_to_AB_precision_original = np.sum(AA_BB_to_AB['Originally_called'] == AA_BB_to_AB['True']) / float(len(AA_BB_to_AB))
+
+    AB_to_AA_BB = discrepancy.iloc[np.where(['1.0_' in x for x in discrepancy_arr])[0]]
+    AB_to_AA_BB_precision_imputed  = np.sum(AB_to_AA_BB['Imputed'] == AB_to_AA_BB['True']) / float(len(AB_to_AA_BB))
+    AB_to_AA_BB_precision_original = np.sum(AB_to_AA_BB['Originally_called'] == AB_to_AA_BB['True']) / float(len(AB_to_AA_BB))
+
+    AA_to_BB = discrepancy.iloc[np.where(['1.0' not in x for x in discrepancy_arr])[0]]
+    AA_to_BB_precision_imputed  = np.sum(AA_to_BB['Imputed'] == AA_to_BB['True']) / float(len(AA_to_BB))
+    AA_to_BB_precision_original = np.sum(AA_to_BB['Originally_called'] == AA_to_BB['True']) / float(len(AA_to_BB))
+
+    discrepancy_metrics = [len(AA_BB_to_AB), AA_BB_to_AB_precision_imputed, AA_BB_to_AB_precision_original, len(AB_to_AA_BB), AB_to_AA_BB_precision_imputed, AB_to_AA_BB_precision_original, len(AA_to_BB), AA_to_BB_precision_imputed, AA_to_BB_precision_original]
+    return discrepancy_metrics
+
 
 def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     if restrict_to_SNP:
@@ -73,10 +91,16 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     # variant calling information
     print('Evaluate genotype originally called from ATAC-seq reads...')
     orginally_called = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False)
-    weight_dat = pd.read_csv('/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/%s.filtered.recode.INFO.vcf' % sample, sep='\t', header = None)
-    weight_dat.columns=['#CHROM', 'POS', 'DP', 'PL', 'GQ']
-    weight_dat = weight_dat[['#CHROM', 'POS', 'GQ']]
 
+    weight_fn = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/%s.filtered.recode.INFO.formatted.vcf' % sample
+    try:
+	weight_dat = pd.read_csv('%s_PPnumbers' % weight_fn, sep='\t')
+    except:
+    	weight_dat = pd.read_csv('/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/%s.filtered.recode.INFO.formatted.vcf' % sample, sep=' ', header = None)
+    	weight_dat.columns=['CHR_POS', 'PL']
+    	weight_dat = weight_dat.copy()
+    	weight_dat['PP'] = achieve_ll(np.array(weight_dat['PL']))
+	weight_dat.to_csv('%s_PPnumbers' % weight_fn, sep='\t', index = False)
 
     print('Evalutae genotype imputed')
     imputed = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
@@ -111,42 +135,29 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     called_in_both['Imputed'] = true_gt[:, 2]
 
     discrepancy = called_in_both[called_in_both['Originally_called'] != called_in_both['Imputed']]
+    discrepancy = discrepancy.merge(weight_dat, on = ['CHR_POS'])
+
     discrepancy_use_original = discrepancy[discrepancy.columns[:7]]
     discrepancy_use_imputed = discrepancy[list(discrepancy.columns[:2]) + list(discrepancy.columns[7:12])]
 
-    pdb.set_trace()
-    discrepancy = discrepancy.merge(weight_dat, on = ['#CHROM', 'POS'])
 
-    performance_discrepancy_use_original = compute_sens_recall(discrepancy_use_original, sample, total_number_array, 'performance_discrepancy_use_original')
-    performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
+    inconsistent_metrics = []
+    for dfi in discrepancy.groupby('PP'):
+	# explore the directions
+	[pp, dfi] = dfi
+        discrepancy_arr = np.array(dfi.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
+        dfi_metrics = AA_AB_BB_switch(dfi, discrepancy_arr)
+	dfi_metrics.append(str(pp))
+	inconsistent_metrics.append(dfi_metrics)
 
-    # Explore the directions
-    discrepancy = discrepancy.copy()
-    discrepancy_arr = np.array(discrepancy.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
+    inconsistent_metrics = pd.DataFrame(inconsistent_metrics)
+    inconsistent_metrics.columns = ["AA_BB_to_AB", "AA_BB_to_AB_precision_imputed", "AA_BB_to_AB_precision_original", "AB_to_AA_BB", "AB_to_AA_BB_precision_imputed", "AB_to_AA_BB_precision_original", "AA_to_BB", "AA_to_BB_precision_imputed", "AA_to_BB_precision_original", "PP"]
+    inconsistent_metrics['sample'] = sample
+    inconsistent_metrics['Number_AA_all'] = total_number_array[0]
+    inconsistent_metrics['Number_AB_all'] = total_number_array[1]
+    inconsistent_metrics['Number_BB_all'] = total_number_array[2]
 
-    AA_BB_to_AB = discrepancy.iloc[np.where(['_1.0' in x for x in discrepancy_arr])[0]]
-    AA_BB_to_AB_precision_imputed  = np.sum(AA_BB_to_AB['Imputed'] == AA_BB_to_AB['True']) / float(len(AA_BB_to_AB))
-    AA_BB_to_AB_precision_original = np.sum(AA_BB_to_AB['Originally_called'] == AA_BB_to_AB['True']) / float(len(AA_BB_to_AB))
-
-    AB_to_AA_BB = discrepancy.iloc[np.where(['1.0_' in x for x in discrepancy_arr])[0]]
-    AB_to_AA_BB_precision_imputed  = np.sum(AB_to_AA_BB['Imputed'] == AB_to_AA_BB['True']) / float(len(AB_to_AA_BB))
-    AB_to_AA_BB_precision_original = np.sum(AB_to_AA_BB['Originally_called'] == AB_to_AA_BB['True']) / float(len(AB_to_AA_BB))
-
-    AA_to_BB = discrepancy.iloc[np.where(['1.0' not in x for x in discrepancy_arr])[0]]
-    AA_to_BB_precision_imputed  = np.sum(AA_to_BB['Imputed'] == AA_to_BB['True']) / float(len(AA_to_BB))
-    AA_to_BB_precision_original = np.sum(AA_to_BB['Originally_called'] == AA_to_BB['True']) / float(len(AA_to_BB))
-
-    stats = pd.DataFrame([sample, len(WGS_df), len(combined), N_notExist_in_WGS, len(only_in_orignal), len(called_in_both) - len(discrepancy), len(discrepancy), len(only_in_imputed)]).transpose()
-    stats.columns = ["sample", "Variants_in_WGS","called_and_in_WGS", "called(imputed)_not_in_WGS","only_in_orignal", "called_in_both_consistent", "called_in_both_inconsistently", "only_in_imputed"]
-
-    print('Evalutae genotype imputed - captured in both methods but with disconcordant genotype')
-    discrepancy_metrics = pd.DataFrame([sample, len(AA_BB_to_AB), AA_BB_to_AB_precision_imputed, AA_BB_to_AB_precision_original, len(AB_to_AA_BB), AB_to_AA_BB_precision_imputed, AB_to_AA_BB_precision_original, len(AA_to_BB), AA_to_BB_precision_imputed, AA_to_BB_precision_original] + total_number_array).transpose()
-    discrepancy_metrics.columns = ["sample", "AA_BB_to_AB", "AA_BB_to_AB_precision_imputed", "AA_BB_to_AB_precision_original", "AB_to_AA_BB", "AB_to_AA_BB_precision_imputed", "AB_to_AA_BB_precision_original", "AA_to_BB", "AA_to_BB_precision_imputed", "AA_to_BB_precision_original", "Number_AA_all", 'Number_AB_all', 'Number_BB_all']
-
-    # save the performance
-    performance = pd.DataFrame([performance_discrepancy_use_original, performance_discrepancy_use_imputed, performance_overall, performance_overall_withPP])
-    performance.columns = ['Sample', 'Number_AA_called', 'Number_AB_called', 'Number_BB_called', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'Number_variants_called', 'Precision_overall', 'Recall_overall', 'group']
-    #performance.to_csv('performance/combined/performance_one_method_%s%s_usePP.txt' % (sample, suffix), sep='\t', index = False)
+    inconsistent_metrics.to_csv('performance/combined/called_inconsistently_%s%s.txt' % (sample, suffix), sep='\t', index = False)
 
 
 
