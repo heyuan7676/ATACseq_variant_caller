@@ -139,6 +139,37 @@ def compare_genrich_combined():
 
 
 
+def compare_macs2_genrich_combined():
+        median = []
+        number_peaks = []
+
+        macs_peaks = pd.read_csv('%s/combined/union-peaks_combined.bed' % (macs_dir), sep='\t', header = None)
+        genrich_peaks = pd.read_csv('%s/combined/union-peaks_combined.bed' % (Genrich_dir), sep='\t', header = None)
+        median.append([np.median(np.array(macs_peaks[2] - macs_peaks[1])), np.median(np.array(genrich_peaks[2] - genrich_peaks[1]))])
+
+        # look at overlap
+        macs2_in_genrich = pd.read_csv('%s/macs2_in_genrich_combined.bed' % (overlap_dir), sep='\t', header = None)
+        macs2_in_genrich = macs2_in_genrich.drop_duplicates()
+        genrich_in_macs2 = pd.read_csv('%s/genrich_in_macs2_combined.bed' % (overlap_dir), sep='\t', header = None)
+        genrich_in_macs2 = genrich_in_macs2.drop_duplicates()
+
+        # overlapping basepairs
+        macs2_basepair = pd.read_csv('%s/macs2_peak_regions_combined.bed' % (overlap_dir), sep='\t', header = None)
+        genrich_basepair = pd.read_csv('%s/genrich_peak_regions_combined.bed' % (overlap_dir), sep='\t', header = None)
+        overlap_bp = pd.read_csv('%s/macs2_genrich_overlap_combined.bed' % (overlap_dir), sep='\t', header = None)
+
+        number_peaks.append([len(macs_peaks), len(genrich_peaks), len(set(macs2_in_genrich[3])), len(set(genrich_in_macs2[3])), np.sum(macs2_basepair[2] - macs2_basepair[1]), np.sum(genrich_basepair[2] - genrich_basepair[1]), np.sum(overlap_bp[2] - overlap_bp[1])])
+        median = np.array(median)
+        print(median)
+
+        number_peaks = pd.DataFrame(number_peaks)
+        number_peaks.columns = ['N_peaks_macs2', 'N_peaks_genrich', 'N_peaks_macs2_in_genrich', 'N_peaks_genrich_in_macs2', 'bp_macs2', 'bp_genrich', 'bp_overlap']
+
+        number_peaks.to_csv('evaluate_peaks/Examine_peaks_results_genrich_macs2_combined.txt', sep='\t', index = False)
+
+
+
+
 
 if __name__ == '__main__':
  	root_dir = sys.argv[1]
@@ -148,7 +179,8 @@ if __name__ == '__main__':
 
 	#compare_macs2_combined()
 	#compare_macs2_genrich_union()
-	compare_genrich_combined()
+	#compare_genrich_combined()
+	compare_macs2_genrich_combined()
 
 
 
