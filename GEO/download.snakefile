@@ -11,6 +11,7 @@ rule download:
         "envs/env_py37.yml"
     shell:
         """
+        rm -f {output}*
         {PREFETCH} {wildcards.indiv} -O {params.outputdir}
         """
 
