@@ -8,11 +8,14 @@ GT_dir = os.path.join(BOWTIE_DIR, 'Genotype')
 OneK_GENOME_DIR = config['OneK_GENOME_DIR']
 
 CHROM = config['CHROM']
+CHROM = ['22']
 VCFTOOLS = config['VCFTOOLS']
+PLINK = config['PLINK']
 
 rule all:
     input:
-        expand(os.path.join(GT_dir, 'ALL.chr' + '{chromosome}' + '.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.recode.vcf'), chromosome = CHROM)
+        #expand(os.path.join(GT_dir, 'ALL.chr' + '{chromosome}' + '.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.recode.vcf'), chromosome = CHROM)
+        expand(os.path.join(GT_dir, 'plink', 'ALL.chr' + '{chromosome}' + '.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005.r2'), chromosome = CHROM)
 
 
 rule extract_maf_005_variants:
@@ -24,7 +27,7 @@ rule extract_maf_005_variants:
         prefix = os.path.join(GT_dir, 'ALL.chr' + '{chromosome}' + '.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.maf005')
     shell:
         """
-        {VCFTOOLS} --gzvcf ${input} --maf 0.05 --recode --recode-INFO-all --out {params}
+        {VCFTOOLS} --gzvcf {input} --maf 0.05 --recode --recode-INFO-all --out {params}
         """
 
 
