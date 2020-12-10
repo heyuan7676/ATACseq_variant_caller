@@ -1,0 +1,23 @@
+
+
+# Directory where the outputs will be put
+DIR: 'run'
+
+
+# Chromosomes included
+CHROM : ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22']
+# Prefix of a chromosome. Usually set to 'chr' (GRCh38) or '' (hg19)
+
+# tools
+BCFTOOLS : 'bcftools'
+VCFTOOLS : 'vcftools'
+BEDTOOLS : 'bedtools'
+PLINK : 'plink'
+THREADS : 24
+
+# data dir
+BOWTIE_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
+
+
+OneK_GENOME_DIR : "/work-zfs/abattle4/lab_data/1k_genomes_GRCh38/ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/"
+
