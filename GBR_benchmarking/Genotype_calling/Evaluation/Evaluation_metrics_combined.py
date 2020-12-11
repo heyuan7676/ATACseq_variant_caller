@@ -133,15 +133,20 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     # called by both
     print('Evalutae genotype imputed - captured in both methods')
-    called_in_both = combined[(~combined['REF_y_x'].isnull()) & (~combined['REF_y_y'].isnull())]
-    called_in_both = called_in_both.copy()
-    called_in_both['CHR_POS'] = called_in_both[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
+    root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
+    try:
+        called_in_both = pd.read_csv('%s/Imputation/minDP%d/%s/called_in_both_sources_GT.txt' % (root_dir, minDP, sample), sep='\t')
+    except:
+        called_in_both = combined[(~combined['REF_y_x'].isnull()) & (~combined['REF_y_y'].isnull())]
+        called_in_both = called_in_both.copy()
+        called_in_both['CHR_POS'] = called_in_both[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
 
-    true_gt = map(convert_gt_to_number, np.array(called_in_both[['%s_x' % sample, '%s_called_x' % sample, '%s_called_y' % sample]]))
-    true_gt = np.array(true_gt)
-    called_in_both['True'] = true_gt[:, 0]
-    called_in_both['Originally_called'] = true_gt[:, 1]
-    called_in_both['Imputed'] = true_gt[:, 2]
+        true_gt = map(convert_gt_to_number, np.array(called_in_both[['%s_x' % sample, '%s_called_x' % sample, '%s_called_y' % sample]]))
+        true_gt = np.array(true_gt)
+        called_in_both['True'] = true_gt[:, 0]
+        called_in_both['Originally_called'] = true_gt[:, 1]
+        called_in_both['Imputed'] = true_gt[:, 2]
+	called_in_both.to_csv('%s/Imputation/minDP%d/%s/called_in_both_sources_GT.txt' % (root_dir, minDP, sample), sep='\t', index = False)
 
     print('Evalutae genotype imputed - captured consistently from two sources')
     con_df = called_in_both[called_in_both['Originally_called'] == called_in_both['Imputed']]
@@ -149,13 +154,6 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     performance_consistent = compute_sens_recall(con_df, sample, total_number_array, 'performance_consistent')
 
     discrepancy = called_in_both[called_in_both['Originally_called'] != called_in_both['Imputed']]
-    discrepancy_arr = np.array(dfi.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
-
-    #print('Evalutae genotype imputed - captured In-consistently from two sources')
-    #discrepancy_use_original = discrepancy[discrepancy.columns[:7]]
-    #performance_discrepancy_use_original = compute_sens_recall(discrepancy_use_original, sample, total_number_array, 'performance_discrepancy_use_original')
-    #discrepancy_use_imputed = discrepancy[list(discrepancy.columns[:2]) + list(discrepancy.columns[7:12])]
-    #performance_discrepancy_use_imputed = compute_sens_recall(discrepancy_use_imputed, sample, total_number_array, 'performance_discrepancy_use_imputed')
 
     stats = pd.DataFrame([sample, len(WGS_df), len(combined), N_notExist_in_WGS, len(only_in_orignal), len(con_df), len(discrepancy), len(only_in_imputed)]).transpose()
     stats.columns = ["sample", "Variants_in_WGS","called_and_in_WGS", "called(imputed)_not_in_WGS","only_in_orignal", "called_in_both_consistent", "called_in_both_inconsistently", "only_in_imputed"]
@@ -167,6 +165,7 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
    
     # combine PP information
     pdb.set_trace()
+    discrepancy_arr = np.array(discrepancy.apply(lambda x: '_'.join((str(x['Originally_called']), str(x['Imputed']))), axis=1))
     weight_dat_subset = weight_dat.loc[discrepancy['CHR_POS']]
     use_imputed_HT = np.intersect1d(np.where(['_1.0' in x for x in discrepancy_arr])[0], np.where(weight_dat_subset['GQ'] == 0)[0])
     use_gc = np.unique(list(np.where(['1.0_' in x for x in discrepancy_arr])[0]) + list(np.where(weight_dat_subset['GQ'] > 0)[0]))
