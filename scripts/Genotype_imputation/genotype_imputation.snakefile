@@ -4,7 +4,7 @@ configfile: 'config.yaml'
 
 PICARD = config['PICARD']
 BCFTOOLS = config['BCFTOOLS']
-VCFTOOLS = config['BCFTOOLS']
+VCFTOOLS = config['VCFTOOLS']
 minDP = config['minDP']
 
 DATA_DIR = config['DATA_DIR']
@@ -20,6 +20,7 @@ if not os.path.isdir(IMPUTATION_DIR):
 
 INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
 INDIVS = INDIVS[0]
+INDIVS = INDIVS[:1]
 
 for s in INDIVS:
     S_DIR = os.path.join(GRCH37_DIR, s)
@@ -30,6 +31,7 @@ for s in INDIVS:
         os.makedirs(S_DIR)
 
 CHROM = config['CHROM']
+CHROM = ['22']
 
 '''Collect genoyptes'''
 
@@ -39,9 +41,9 @@ wildcard_constraints:
 rule all:
     input:
         #expand(os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"), indiv = INDIVS),
-        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"), indiv = INDIVS, chr = CHROM)
-        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf.gz"), indiv = INDIVS, chr = CHROM),
-        #expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.minDP" + minDP + ".txt"), indiv = INDIVS, chr = CHROM)
+        #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.withINFO.vcf.gz"), indiv = INDIVS, chr = CHROM)
+        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.minDP" + minDP + ".dose.vcf.gz"), indiv = INDIVS, chr = CHROM),
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"), indiv = INDIVS, chr = CHROM)
 
 
 CHAIN_FN = "/work-zfs/abattle4/heyuan/tools/liftOver/hg38ToHg19.over.chain.gz"
@@ -85,47 +87,49 @@ rule split_chromosomes:
         vcf_gz = os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"),
         header = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}.filtered.recode.GRCh37.header.txt")
     params:
-        temp_fn = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.temp"),
-        chr_vcf = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf")
+        chr_vcf = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.withINFO.vcf")
     output:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"),
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.withINFO.vcf.gz"),
     shell:
         """
         cat {input.header} > {params.chr_vcf}
         tabix {input.vcf_gz} chr{wildcards.chr} | sed 's/chr//g' | sed '/	<NON_REF>/d' | sed 's/,<NON_REF>//g' >> {params.chr_vcf}
         bgzip {params.chr_vcf}
         tabix -p vcf {output.chr_vcf_gz}
-        {BCFTOOLS} annotate -x INFO {output.chr_vcf_gz} |  {BCFTOOLS} annotate -x FORMAT > {params.temp_fn}
-        rm {output.chr_vcf_gz}
-        mv {params.temp_fn} {params.chr_vcf}
-        bgzip {params.chr_vcf}
-        tabix -f -p vcf {output.chr_vcf_gz}
         """
 
 
 rule filterVCF_minDP:
     input:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz")
-    output:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP+ ".vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.withINFO.vcf.gz")
     params:
         minimumdp = minDP,
-        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP"+ minDP)
+        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP"+ minDP),
+        chr_vcf = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP"+ minDP + ".recode.vcf"),
+        tempfn = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP"+ minDP + ".recode.vcf.temp")
+    output:
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP + ".recode.vcf.gz"),
     shell:
         """
-        {VCFTOOLS} --vcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
+        {VCFTOOLS} --gzvcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
+        bgzip {params.chr_vcf}
+        tabix -f -p vcf {output.chr_vcf_gz}
+        {BCFTOOLS} annotate -x INFO {output.chr_vcf_gz} |  {BCFTOOLS} annotate -x FORMAT > {params.tempfn}
+        rm {output.chr_vcf_gz}
+        mv {params.tempfn} {params.chr_vcf}
+        bgzip {params.chr_vcf}
+        tabix -f -p vcf {output.chr_vcf_gz}
         """
-
 
 
 rule imputation:
     input:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP + ".vcf.gz"),
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP + ".recode.vcf.gz"),
         chr_ref_panel = "/work-zfs/abattle4/lab_data/imputation_reference_panel/{chr}.1000g.Phase3.v5.With.Parameter.Estimates.m3vcf.gz"
     params:
-        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37")
+        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.minDP" + minDP)
     output:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.minDP" + minDP + ".dose.vcf.gz")
     conda:
         "../envs/env_py37.yml"
     shell:
@@ -137,11 +141,11 @@ rule imputation:
 
 rule obtain_genotype:
     input:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP+ ".vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.minDP" + minDP+ ".dose.vcf.gz")
     params:
-        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf")
+        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.minDP" + minDP + ".dose.vcf")
     output:
-        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP+ ".txt")
+        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
     conda:
         "../envs/env_py37.yml"
     shell:
@@ -156,10 +160,10 @@ rule obtain_genotype:
 LIFTOVER_DIR = "/work-zfs/abattle4/heyuan/tools/liftOver"
 rule lift_to_GRCh38:
     input:
-        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP + ".txt")
+        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
     output:
-        bedfile = temp(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP + ".bed")),
-        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.minDP" + minDP + ".txt"),
+        bedfile = temp(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.bed")),
+        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"),
     shell:
         """
         awk "{{print "'"chr"'"\$1,\$2,\$3 = \$2 + 1,\$4}}" {input} | sed "1d" > {output.bedfile}
