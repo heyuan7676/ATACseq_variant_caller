@@ -5,6 +5,7 @@ configfile: 'config.yaml'
 PICARD = config['PICARD']
 BCFTOOLS = config['BCFTOOLS']
 VCFTOOLS = config['BCFTOOLS']
+minDP = config['minDP']
 
 DATA_DIR = config['DATA_DIR']
 VCF_DIR = os.path.join(DATA_DIR, 'VCF_files')
@@ -13,7 +14,7 @@ GRCH37_DIR = os.path.join(VCF_DIR, 'GRCh37')
 if not os.path.isdir(GRCH37_DIR):
     os.makedirs(GRCH37_DIR)
 
-IMPUTATION_DIR = os.path.join(DATA_DIR, "Imputation")
+IMPUTATION_DIR = os.path.join(DATA_DIR, "Imputation", "minDP" + str(minDP))
 if not os.path.isdir(IMPUTATION_DIR):
     os.makedirs(IMPUTATION_DIR)
 
@@ -28,7 +29,7 @@ for s in INDIVS:
     if not os.path.isdir(S_DIR):
         os.makedirs(S_DIR)
 
-CHROM = config['CHROM'][21:]
+CHROM = config['CHROM']
 
 '''Collect genoyptes'''
 
@@ -39,8 +40,8 @@ rule all:
     input:
         #expand(os.path.join(GRCH37_DIR, "{indiv}.filtered.recode.GRCh37.vcf.gz"), indiv = INDIVS),
         #expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"), indiv = INDIVS, chr = CHROM)
-        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz"), indiv = INDIVS, chr = CHROM),
-        #expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"), indiv = INDIVS, chr = CHROM)
+        expand(os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf.gz"), indiv = INDIVS, chr = CHROM),
+        #expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.minDP" + minDP + ".txt"), indiv = INDIVS, chr = CHROM)
 
 
 CHAIN_FN = "/work-zfs/abattle4/heyuan/tools/liftOver/hg38ToHg19.over.chain.gz"
@@ -102,14 +103,29 @@ rule split_chromosomes:
         """
 
 
+rule filterVCF_minDP:
+    input:
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz")
+    output:
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP+ ".vcf.gz")
+    params:
+        minimumdp = minDP,
+        prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP"+ minDP)
+    shell:
+        """
+        {VCFTOOLS} --vcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
+        """
+
+
+
 rule imputation:
     input:
-        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.vcf.gz"),
+        chr_vcf_gz = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.minDP" + minDP + ".vcf.gz"),
         chr_ref_panel = "/work-zfs/abattle4/lab_data/imputation_reference_panel/{chr}.1000g.Phase3.v5.With.Parameter.Estimates.m3vcf.gz"
     params:
         prefix = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37")
     output:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf.gz")
     conda:
         "../envs/env_py37.yml"
     shell:
@@ -121,11 +137,11 @@ rule imputation:
 
 rule obtain_genotype:
     input:
-        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf.gz")
+        os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP+ ".vcf.gz")
     params:
-        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.vcf")
+        intermediate = os.path.join(GRCH37_DIR, "{indiv}", "{indiv}_chr{chr}.imputed.GRCh37.dose.minDP" + minDP + ".vcf")
     output:
-        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
+        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP+ ".txt")
     conda:
         "../envs/env_py37.yml"
     shell:
@@ -140,10 +156,10 @@ rule obtain_genotype:
 LIFTOVER_DIR = "/work-zfs/abattle4/heyuan/tools/liftOver"
 rule lift_to_GRCh38:
     input:
-        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.txt")
+        os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP + ".txt")
     output:
-        bedfile = temp(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.bed")),
-        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"),
+        bedfile = temp(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh37.genotype.minDP" + minDP + ".bed")),
+        lifted = os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.minDP" + minDP + ".txt"),
     shell:
         """
         awk "{{print "'"chr"'"\$1,\$2,\$3 = \$2 + 1,\$4}}" {input} | sed "1d" > {output.bedfile}
