@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ranksums
 from Evaluation_metrics import *
+sys.path.append('/work-zfs/abattle4/heyuan/Variant_calling/scripts/QTL')
 from prepare_data_matrix import achieve_ll
 
 def convert_gt_to_number(arri):
@@ -72,7 +73,7 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
     # variant calling information
     print('Evaluate genotype originally called from ATAC-seq reads...')
-    orginally_called = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False)
+    orginally_called = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = False, minDP = minDP)
     weight_fn = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/%s.filtered.recode.INFO.formatted.vcf' % sample
     try:
         weight_dat = pd.read_csv('%s_PPnumbers' % weight_fn, sep='\t')
@@ -85,7 +86,7 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
 
 
     print('Evalutae genotype imputed')
-    imputed = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True)
+    imputed = obtain_atac_variants_df(sample, oneK_snps, WGS_result=WGS_df, restrict_to_SNP=restrict_to_SNP, Imputed = True, minDP = minDP)
     N_notExist_in_WGS = sum(imputed['REF_x'].isnull())
 
     # compare the two called genotype datasets
@@ -165,6 +166,7 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     performance_overall = compute_sens_recall(combine_all, sample, total_number_array, 'performance_overall_noInconsistent')
    
     # combine PP information
+    pdb.set_trace()
     weight_dat_subset = weight_dat.loc[discrepancy['CHR_POS']]
     use_imputed_HT = np.intersect1d(np.where(['_1.0' in x for x in discrepancy_arr])[0], np.where(weight_dat_subset['GQ'] == 0)[0])
     use_gc = np.unique(list(np.where(['1.0_' in x for x in discrepancy_arr])[0]) + list(np.where(weight_dat_subset['GQ'] > 0)[0]))
@@ -174,13 +176,14 @@ def compute_genotype_metrics_called_and_imputed(sample, restrict_to_SNP = True):
     # save the performance
     performance = pd.DataFrame([performance_in_original, performance_in_imputed, performance_only_in_original, performance_only_in_imputed, performance_consistent, performance_overall, performance_overall_withPP])
     performance.columns = ['Sample', 'Number_AA_called', 'Number_AB_called', 'Number_BB_called', 'Precision_AA', 'Precision_AB', 'Precision_BB', 'Recall_AA_tested', 'Recall_AB_tested', 'Recall_BB_tested', 'Number_AA_all', 'Number_AB_all', 'Number_BB_all', 'Recall_AA_all', 'Recall_AB_all', 'Recall_BB_all', 'Number_variants_called', 'Precision_overall', 'Recall_overall', 'group']
-    performance.to_csv('performance/combined/performance_one_method_%s%s_usePP.txt' % (sample, suffix), sep='\t', index = False)
+    performance['minDP'] = minDP
+    performance.to_csv('performance/combined/performance_one_method_%s%s_minDP%d.txt' % (sample, suffix, minDP), sep='\t', index = False)
 
 
 
 if __name__ == '__main__':
-    minDP = 2
     sample = sys.argv[1]
+    minDP = int(sys.argv[2])
     if not os.path.exists('performance/combined'):
         os.makedirs('performance/combined')
 
