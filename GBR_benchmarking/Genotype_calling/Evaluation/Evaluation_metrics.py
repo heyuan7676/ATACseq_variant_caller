@@ -55,7 +55,7 @@ def obtain_atac_variants_df(sample, oneK_variants, WGS_result, restrict_to_SNP =
 
     root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie'
     if Imputed:
-        SNP_calling_dir = '%s/Imputation/%s' % (root_dir, sample)
+        SNP_calling_dir = '%s/Imputation/minDP%s/%s' % (root_dir, sample, minDP)
         SNP_called_fn = '%s/%s.imputed.GRCh38.biallelic.genotype.txt' % (SNP_calling_dir, sample)
     else:
         SNP_calling_dir = '%s/Called_GT/minDP%d' % (root_dir, minDP)
