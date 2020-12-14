@@ -21,6 +21,7 @@ bedtools intersect -a ${fn2} -b ${fn1} > ${output_dir}/${sample1}_${sample2}_mac
 sort -k1,1n -k2,2n ${fn1} | bedtools merge > ${output_dir}/${sample1}_macs2_peak_regions.bed
 sort -k1,1n -k2,2n ${fn2} | bedtools merge > ${output_dir}/${sample2}_macs2_peak_regions.bed
 bedtools intersect -a ${fn1} -b ${fn2} | sort -k1,1n -k2,2n | bedtools merge > ${output_dir}/${sample1}_${sample2}_macs2_overlap_bp.bed
-rm ${output_dir}/${sample1}_macs2_peak_regions.bed
-rm ${output_dir}/${sample2}_macs2_peak_regions.bed
 
+
+ml python/2.7
+python peak_examine_macs2s.py ${sample1} ${sample2}
