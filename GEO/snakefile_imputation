@@ -1,0 +1,80 @@
+import os
+
+configfile: 'config.yaml'
+
+'''Load from config file'''
+
+GATK = config['GATK']
+SAMTOOLS = config['SAMTOOLS']
+BCFTOOLS = config['BCFTOOLS']
+VCFTOOLS = config['VCFTOOLS']
+BEDTOOLS = config['BEDTOOLS']
+MACS2 = config['MACS2']
+
+DIR = config['DIR']
+
+FQ_DIR = config['FQ_DIR']
+BOWTIE_DIR = config['BOWTIE_DIR']
+DIR_FIRST_PASS = os.path.join(BOWTIE_DIR, 'first_pass_bqsr')
+PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
+VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files') 
+GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
+TMP_DIR = config['TMP_DIR']
+
+# Bowtie 2 genome
+BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
+SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
+
+GENOME = config['GENOME']
+GENOME_STAR = config['GENOME_STAR']
+VCFFN = config['VCFFN']
+
+THREADS = config['THREADS']
+minDP_arr = config['minDP_arr']
+GQ_arr = config['GQ_arr']
+
+minDP = config['minDP']
+IMPUTATION_DIR = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + minDP)
+
+INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
+INDIVS = INDIVS[0]
+INDIVS.sort()
+print(INDIVS)
+
+CHROM = config['CHROM']
+wildcard_constraints:
+    chr="\d+"
+
+
+DATA_DIR = config['DATA_DIR']
+VCF_DIR = os.path.join(DATA_DIR, 'VCF_files')
+
+GRCH37_DIR = os.path.join(VCF_DIR, 'GRCh37')
+if not os.path.isdir(GRCH37_DIR):
+    os.makedirs(GRCH37_DIR)
+
+for s in INDIVS:
+    S_DIR = os.path.join(GRCH37_DIR, s)
+    if not os.path.isdir(S_DIR):
+        os.makedirs(S_DIR)
+    S_DIR = os.path.join(IMPUTATION_DIR, s)
+    if not os.path.isdir(S_DIR):
+        os.makedirs(S_DIR)
+
+
+## These need to after the global variables in order to use them
+include : '../scripts/Genotype_imputation/genotype_imputation.snakefile'
+include : '../scripts/Genotype_imputation/obtain_genotype_imputed.snakefile'
+
+
+
+''' Snakemake rules '''
+rule all:
+    input:
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "chr{chr}.imputed.GRCh38.genotype.txt"), indiv = INDIVS, chr = CHROM),
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.imputed.GRCh38.genotype.txt_snpids"), indiv = INDIVS),
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.genotype.txt"), indiv = INDIVS),
+        expand(os.path.join(IMPUTATION_DIR, "{indiv}", "{indiv}.imputed.GRCh38.biallelic.genotype.txt"), indiv = INDIVS)
+        #os.path.join(IMPUTATION_DIR,  "union-SNPs_imputed.bed"),
+        #expand(os.path.join(IMPUTATION_DIR, "{indiv}","{indiv}.filtered.genotype.txt_matrix"), indiv = INDIVS),
+        #expand(os.path.join(IMPUTATION_DIR, "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
