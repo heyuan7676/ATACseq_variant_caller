@@ -1,25 +1,3 @@
-import os
-
-configfile: 'config.yaml'
-
-BOWTIE_DIR = config['BOWTIE_DIR']
-VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files')
-GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
-
-INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.filtered.recode.vcf.gz'))
-INDIVS = INDIVS[0]
-CHROM = config['CHROM']
-
-minDP_arr = config['minDP_arr']
-
-'''Collect genotype data'''
-
-rule all:
-    input:
-        #expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),
-        expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM, minDP = minDP_arr),
-        expand(os.path.join(VCF_DIR, "gt_info_by_sample_matrix_chr{chr}_atac.txt"), chr = CHROM)
-
 
 rule collect_gt_each:
     input:
@@ -55,7 +33,7 @@ rule collect_genotype_union:
         gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_snps"),
         snps = os.path.join(GENOTYPE_DIR,  "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed')
     output:
-        gt = os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_matrix")
+        gt = temp(os.path.join(GENOTYPE_DIR, "minDP{minDP}","{indiv}.filtered.genotype.txt_matrix"))
     shell:
         """
         join -e0 -a 1 -a 2 -j 1 {input.snps} -o auto {input.gt} | awk "{{print \$4}}"> {output.gt}
@@ -85,7 +63,7 @@ rule collect_INFO_union:
         info = os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf"),
         snps = os.path.join(GENOTYPE_DIR,  "minDP2", 'union-SNPs_minDP2.bed')
     output:
-        info = temp(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf_matrix"))
+        info = os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf_matrix")
     shell:
         """
         join -e0 -a 1 -a 2 -j 1 {input.snps} -o auto {input.info} | awk "{{print \$4}}"> {output.info}

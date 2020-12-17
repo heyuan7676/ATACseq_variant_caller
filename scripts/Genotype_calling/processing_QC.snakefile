@@ -22,7 +22,7 @@ rule build_vcf_index:
     output:
         VCFFN + '.idx'
     conda:
-        "envs/env_py37.yml"
+        "../envs/env_py37.yml"
     threads: THREADS
     shell:
         '{GATK} IndexFeatureFile -I {input}'
@@ -72,7 +72,7 @@ rule build_bqsr_table:
     output:
         table = temp(os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup.bqsr.table'))
     conda:
-        "envs/env_py37.yml"
+        "../envs/env_py37.yml"
     threads: THREADS
     shell:
         '{GATK} BaseRecalibrator -R {input.genome} -I {input.bam} --known-sites {input.known_vcf} -O {output.table}'
