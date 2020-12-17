@@ -27,12 +27,15 @@ rule gvcf2vcf_gatk:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     output:
-        vcffile = os.path.join(VCF_DIR, '{indiv}.vcf'),
         gzfile = os.path.join(VCF_DIR, '{indiv}.vcf.gz')
+    params:
+        vcffile = os.path.join(VCF_DIR, '{indiv}.vcf'),
+        gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
     shell:
         """
-        {GATK} GenotypeGVCFs -R {GENOME_STAR} -V {input} -O {output.vcffile}
-        bgzip {output.vcffile}
+        {GATK} GenotypeGVCFs -R {GENOME_STAR} -V {input} -O {params.vcffile}
+        bgzip {params.vcffile}
+        rm {params.gvcf_index_file}
         """
 
 
@@ -45,13 +48,11 @@ rule format_info:
         os.path.join(VCF_DIR, '{indiv}.vcf.gz')
     output:
         info=os.path.join(VCF_DIR, '{indiv}.filtered.recode.INFO.vcf'),
-        fn1=temp(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.vcf_t")),
-        fn2=os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf")
+        filename=os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf")
     shell:
         """
         {BCFTOOLS} query -f '%CHROM\t%POS\t[%DP\t%PL\t%GQ]\n' {input} > {output.info}
-        awk "{{if((\$3>1)) print \$0}}" {input} > {output.fn1}
-        paste -d"_" <(awk "{{print \$1}}" {output.fn1}) <(awk "{{print \$2,\$4}}" {output.fn1}) | sed "1d" | sort -k1,1 -k2,2 > {output.fn2}
+        paste -d"_" <(awk "{{print \$1}}" {output.info}) <(awk "{{print \$2,\$4}}" {output.info}) | sed "1d" | sort -k1,1 -k2,2 > {output.filename}
         """
 
 
@@ -64,13 +65,17 @@ rule filterVCF_minDP:
     input:
         os.path.join(VCF_DIR, '{indiv}.vcf.gz')
     output:
-        temp(os.path.join(VCF_DIR, '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf'))
+        os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz')
     params:
         minimumdp = '{minDP}',
-        prefix = os.path.join(VCF_DIR,'{indiv}' + '.filtered.minDP' + '{minDP}')
+        prefix = os.path.join(VCF_DIR,'minDP{minDP}','{indiv}' + '.filtered.minDP' + '{minDP}'),
+        vcffile = os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf'),
+        logfile = os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.log')
     shell:
         """
         {VCFTOOLS} --gzvcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
+        rm {params.logfile}
+        bgzip {params.vcffile} 
         """
 
 
@@ -80,13 +85,20 @@ Call genotypes
 
 rule call_genotype:
     input:
-        os.path.join(VCF_DIR, '{indiv}.filtered.minDP' + '{minDP}' + '.recode.vcf')
+        os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz')
+    params:
+        os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf')
     output:
         os.path.join(GENOTYPE_DIR, 'minDP{minDP}', '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt')
     conda:
         "../envs/env_py37.yml"
     shell:
-        'vcf-to-tab < {input} > {output}'
+        """
+        gunzip {input}
+        vcf-to-tab < {params} > {output}
+        bgzip {params}
+        """
+
 
 
 
