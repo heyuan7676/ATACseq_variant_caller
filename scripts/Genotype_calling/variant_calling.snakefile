@@ -6,7 +6,7 @@ GENOME_DICT = '.'.join(GENOME_STAR.split('.')[:-1]) + '.dict'
 Variant calling using GATK
 '''
 
-oneK_variants_locations='/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/maf005/1k_genome.variants.locations.bed'
+oneK_variants_locations='/work-zfs/abattle4/heyuan/Variant_calling/datasets/onek_genome_data/1k_genome.maf005.variants.locations.bed'
 rule GATK_haplotypecaller:
     input:
         bam = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-clean.bam'),

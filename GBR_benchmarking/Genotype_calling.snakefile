@@ -18,8 +18,6 @@ INDIVS = []
 fn = open('samples.txt', 'r')
 for line in fn.readlines():
     INDIVS.append(line.rstrip())
-INDIVS = INDIVS[:10]
-
 
 FQ_DIR = config['FQ_DIR']
 BOWTIE_DIR = config['BOWTIE_DIR']
@@ -28,6 +26,7 @@ PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
 VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files') 
 GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
 TMP_DIR = config['TMP_DIR']
+
 
 os.makedirs(FQ_DIR, exist_ok = True)
 os.makedirs(BOWTIE_DIR, exist_ok = True)
@@ -47,6 +46,7 @@ VCFFN = config['VCFFN']
 
 THREADS = config['THREADS']
 minDP_arr = config['minDP_arr']
+minDP_arr = ['2']
 
 for dp in minDP_arr:
     os.makedirs(os.path.join(VCF_DIR, 'minDP' + dp), exist_ok = True)
@@ -67,16 +67,16 @@ wildcard_constraints:
 include : '../scripts/Genotype_calling/alignment.snakefile'
 include : '../scripts/Genotype_calling/processing_QC.snakefile'
 include : '../scripts/Genotype_calling/variant_calling.snakefile'
-include : '../scripts/Genotype_calling/obtain_genotype.snakefile'
 include : '../scripts/Genotype_calling/genotype_imputation.snakefile'
+#include : '../scripts/Genotype_calling/obtain_genotype.snakefile'
 #include : '../scripts/Genotype_calling/obtain_genotype_imputed.snakefile'
 
 
 ''' Snakemake rules '''
 rule all:
     input:
+        expand(os.path.join(VCF_DIR, '{indiv}.vcf.gz'), indiv = INDIVS),
         expand(os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz'), indiv = INDIVS, minDP = minDP_arr),
-        expand(os.path.join(GENOTYPE_DIR, 'minDP{minDP}', '{indiv}.filtered.genotype.minDP' + '{minDP}' + '.txt'), indiv = INDIVS, minDP = minDP_arr),
         expand(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf"), indiv = INDIVS),
         expand(os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed"), minDP = minDP_arr, indiv = INDIVS)
         #expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),

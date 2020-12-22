@@ -10,9 +10,9 @@ rule gvcf2vcf_gatk:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     output:
-        gzfile = temp(os.path.join(VCF_DIR, '{indiv}.vcf.gz'))
+        gzfile = temp(os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz'))
     params:
-        vcffile = os.path.join(VCF_DIR, '{indiv}.vcf'),
+        vcffile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf'),
         gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
     shell:
         """
@@ -24,7 +24,7 @@ rule gvcf2vcf_gatk:
 
 rule filterVCF_minDP_for_imputation:
     input:
-        os.path.join(VCF_DIR, '{indiv}.vcf.gz')
+        os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz')
     output:
         temp(os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.forimputation.recode.vcf.gz'))
     params:
@@ -103,7 +103,7 @@ rule imputation:
         "../envs/env_py37.yml"
     shell:
         """
-        minimac4 --refHaps {input.chr_REF_PANEL} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 100 --ignoreDuplicates --format GT,DS,GP --minRatio 0.01
+        minimac4 --refHaps {input.chr_REF_PANEL} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 200 --ignoreDuplicates --format GT,DS,GP --minRatio 0.01
         rm {params.info}
         rm {params.index_file}
         """
