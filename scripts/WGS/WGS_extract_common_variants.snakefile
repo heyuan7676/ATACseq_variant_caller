@@ -4,7 +4,6 @@ configfile: 'config.yaml'
 '''Extract variants with population MAF > 0.05 from the 1000 Genome Project'''
 
 CHROM = config['CHROM']
-CHROM = ['22']
 VCFTOOLS = config['VCFTOOLS']
 
 OneK_GENOME_DIR = config['OneK_GENOME_DIR']
