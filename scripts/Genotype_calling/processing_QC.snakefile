@@ -1,6 +1,6 @@
 import os
 
-GENOME_DICT = '.'.join(GENOME_STAR.split('.')[:-1]) + '.dict'
+GENOME_DICT = '.'.join(GENOME.split('.')[:-1]) + '.dict'
 RGPL = 'illumina'
 RGPU = 'Unknown'
 
@@ -9,11 +9,15 @@ rule build_genome_dict:
     Build `.dict` file for reference genome
     '''
     input:
-        GENOME_STAR
+        GENOME
     output:
-        GENOME_DICT
+        faidx = GENOME + '.fai',
+        dict = GENOME_DICT
     shell:
-        '{PICARD} CreateSequenceDictionary R={input} O={output}'
+        """
+        {SAMTOOLS} faidx {input} -o {output.faidx}
+        {PICARD} CreateSequenceDictionary R={input} O={output.dict}
+        """
 
 
 rule build_vcf_index:
@@ -65,7 +69,7 @@ rule remove_chrprefix:
 rule build_bqsr_table:
     input:
         bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup_nochr.bam'),
-        genome = GENOME_STAR,
+        genome = GENOME,
         known_vcf = VCFFN,
         genome_dict = GENOME_DICT,
         vcf_index = VCFFN + '.idx'
@@ -81,7 +85,7 @@ rule build_bqsr_table:
 rule apply_bqsr:
     input:
         bam = os.path.join(BOWTIE_DIR, '{indiv}' + '-RG-dedup_nochr.bam'),
-        genome = GENOME_STAR,
+        genome = GENOME,
         table = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup.bqsr.table'),
     output:
         bam = temp(os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-bqsr.bam')),
@@ -90,24 +94,11 @@ rule apply_bqsr:
         '{GATK} ApplyBQSR -R {input.genome} -I {input.bam} --bqsr-recal-file {input.table} -O {output.bam}'
 
 
-rule clean_header:
-    input:
-        os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-bqsr.bam')
-    output:
-        temp(os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-cleanH.bam'))
-    shell:
-        """
-        {SAMTOOLS} view -H {input} | grep -v "SN:Un" | grep -v "SN:EBV" | grep -v "SN:X" | grep -v "SN:Y" | grep -v "SN:M" > {output}.temp
-        {SAMTOOLS} view {input} >> {output}.temp
-        {SAMTOOLS} view -h -b -S {output}.temp > {output}
-        rm {output}.temp
-        """
-
 
 '''Remove reads tagged by picard Duplicate'''
 rule removedup:
     input:
-        os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-cleanH.bam')
+        os.path.join(DIR_FIRST_PASS, '{indiv}' + '-RG-dedup-bqsr.bam')
     output:
         os.path.join(DIR_FIRST_PASS, '{indiv}' + '-clean.bam')
     shell:

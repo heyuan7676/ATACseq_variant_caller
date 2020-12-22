@@ -18,6 +18,7 @@ INDIVS = []
 fn = open('samples.txt', 'r')
 for line in fn.readlines():
     INDIVS.append(line.rstrip())
+INDIVS = INDIVS[:1]
 
 FQ_DIR = config['FQ_DIR']
 BOWTIE_DIR = config['BOWTIE_DIR']
@@ -39,9 +40,7 @@ os.makedirs(TMP_DIR, exist_ok = True)
 # Bowtie 2 genome
 BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
 SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
-
 GENOME = config['GENOME']
-GENOME_STAR = config['GENOME_STAR']
 VCFFN = config['VCFFN']
 
 THREADS = config['THREADS']
@@ -75,9 +74,8 @@ include : '../scripts/Genotype_calling/genotype_imputation.snakefile'
 ''' Snakemake rules '''
 rule all:
     input:
-        expand(os.path.join(VCF_DIR, '{indiv}.vcf.gz'), indiv = INDIVS),
+        expand(os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz'), indiv = INDIVS),
         expand(os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz'), indiv = INDIVS, minDP = minDP_arr),
-        expand(os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf"), indiv = INDIVS),
         expand(os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed"), minDP = minDP_arr, indiv = INDIVS)
         #expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", 'union-SNPs_minDP{minDP}.bed'), minDP = minDP_arr),
         #expand(os.path.join(GENOTYPE_DIR, "minDP{minDP}", "gt_by_sample_matrix_chr{chr}.txt"), chr = CHROM, minDP = minDP_arr),

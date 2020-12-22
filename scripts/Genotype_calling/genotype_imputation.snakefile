@@ -10,15 +10,15 @@ rule gvcf2vcf_gatk:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     output:
-        gzfile = temp(os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz'))
+        gzfile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz')
     params:
         vcffile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf'),
         gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
     shell:
         """
-        {GATK} GenotypeGVCFs -R {GENOME_STAR} -V {input} -O {params.vcffile}
+        {GATK} GenotypeGVCFs -R {GENOME} -V {input} -O {params.vcffile}
         bgzip {params.vcffile}
-        rm {params.gvcf_index_file}
+        rm -f {params.gvcf_index_file}
         """
 
 
@@ -30,12 +30,10 @@ rule filterVCF_minDP_for_imputation:
     params:
         minimumdp = '{minDP}',
         prefix = os.path.join(VCF_DIR,'minDP{minDP}','{indiv}' + '.forimputation'),
-        vcffile = os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.forimputation.recode.vcf'),
-        logfile = os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.forimputation.log')
+        vcffile = os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.forimputation.recode.vcf')
     shell:
         """
         {VCFTOOLS} --gzvcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
-        rm {params.logfile}
         bgzip {params.vcffile}
         """
 
@@ -44,11 +42,11 @@ rule liftHg38ToHg19:
     input:
         os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.forimputation.recode.vcf.gz')
     params: 
-        vcf_on_grch37 = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.vcf")
+        vcf_on_grch37 = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf")
     output:
-        middle=temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.vcf.temp")),
-        rejected = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.rejected.vcf"),
-        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.vcf.gz")
+        middle=temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.vcf.temp")),
+        rejected = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.rejected.vcf"),
+        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz")
     shell:
         """
         zcat {input} |  grep "^#" > {output.middle}
@@ -60,11 +58,11 @@ rule liftHg38ToHg19:
 
 rule format_vcf:
     input:
-        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.vcf.gz")
+        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz")
     params:
-        os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.vcf.gz.tbi")
+        os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz.tbi")
     output:
-        temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.header.txt"))
+        temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.header.txt"))
     shell:
         """
         rm -f {params}
@@ -75,12 +73,12 @@ rule format_vcf:
 
 rule split_chromosomes:
     input:
-        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.vcf.gz"),
-        header = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.header.txt")
+        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz"),
+        header = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.header.txt")
     params:
-        chr_vcf = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}.vcf")
+        chr_vcf = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}_forimputation.vcf")
     output:
-        chr_vcf_gz = temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}.vcf.gz"))
+        chr_vcf_gz = temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}_forimputation.vcf.gz"))
     shell:
         """
         cat {input.header} > {params.chr_vcf}
@@ -91,7 +89,7 @@ rule split_chromosomes:
 
 rule imputation:
     input:
-        chr_vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}.vcf.gz"),
+        chr_vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}_forimputation.vcf.gz"),
         chr_REF_PANEL = "/work-zfs/abattle4/lab_data/imputation_reference_panel/{chr}.1000g.Phase3.v5.With.Parameter.Estimates.m3vcf.gz"
     params:
         prefix = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}_chr{chr}.imputed"),
@@ -103,16 +101,16 @@ rule imputation:
         "../envs/env_py37.yml"
     shell:
         """
-        minimac4 --refHaps {input.chr_REF_PANEL} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 200 --ignoreDuplicates --format GT,DS,GP --minRatio 0.01
-        rm {params.info}
-        rm {params.index_file}
+        minimac4 --refHaps {input.chr_REF_PANEL} --haps {input.chr_vcf_gz} --prefix {params.prefix} --ChunkLengthMb 300 --ignoreDuplicates --format GT,DS,GP --minRatio 0.01
+        rm -f {params.info}
+        rm -f {params.index_file}
         """
 
 
 
 rule merge_chrs:
     input:
-        header = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.GRCh37.header.txt"),
+        header = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.header.txt"),
         files = expand(os.path.join(VCF_DIR, "minDP" + "{{minDP}}", "GRCh37", "{{indiv}}", "{{indiv}}_chr{chr}.imputed.dose.vcf.gz"), chr = CHROM)
     output:
         vcf_file = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf"),

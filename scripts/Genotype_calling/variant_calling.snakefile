@@ -1,6 +1,5 @@
 import os
 
-GENOME_DICT = '.'.join(GENOME_STAR.split('.')[:-1]) + '.dict'
 
 '''
 Variant calling using GATK
@@ -11,38 +10,37 @@ rule GATK_haplotypecaller:
     input:
         bam = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-clean.bam'),
         bai = os.path.join(DIR_FIRST_PASS, '{indiv}' + '-clean.bam.bai'),
-        genome_dict = GENOME_DICT,
         interesting_region = {oneK_variants_locations}
     output:
         gvcf_gz = temp(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
     threads: THREADS
     shell:
-        '{GATK} HaplotypeCaller -R {GENOME_STAR} -L {input.interesting_region} \
+        '{GATK} HaplotypeCaller -R {GENOME} -L {input.interesting_region} \
             -I {input.bam} -O {output.gvcf_gz} --tmp-dir {TMP_DIR} --native-pair-hmm-threads {threads} \
             -ERC GVCF'
-
 
 
 '''
 Filter variants
 '''
-rule gvcf2vcf:
+rule filter_no_reads:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     params:
-        os.path.join(VCF_DIR, '{indiv}.vcf')
+        prefix = os.path.join(VCF_DIR, '{indiv}'),
+        fn = os.path.join(VCF_DIR, '{indiv}.recode.vcf')
     output:
-        vcf=os.path.join(VCF_DIR, '{indiv}.vcf.gz'),
+        vcf=os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz'),
     shell:
         """
-        {BCFTOOLS} convert --gvcf2vcf {input} -f {GENOME_STAR} > {params}
-        bgzip {params}
+        {VCFTOOLS} --gzvcf {input} --min-meanDP 2 --recode --recode-INFO-all --out {params.prefix}
+        bgzip {params.fn}
         """
 
 
 rule filterVCF_minDP:
     input:
-        os.path.join(VCF_DIR, '{indiv}.vcf.gz')
+        os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz')
     output:
         os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz')
     params:
@@ -53,7 +51,6 @@ rule filterVCF_minDP:
     shell:
         """
         {VCFTOOLS} --gzvcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
-        rm {params.logfile}
         bgzip {params.vcffile}
         """
 
