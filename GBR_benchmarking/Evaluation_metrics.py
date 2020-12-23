@@ -1,127 +1,40 @@
+
+# coding: utf-8
+
+# In[5]:
+
+
 import os
 import sys
 import numpy as np
 import pandas as pd
 from collections import Counter
 
+from utils import *
 
-
-golden_standard_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype'
-
-def readin_golden_standard_genotype(sample):    
-    print('Read in golden standard variants genotype data')
-    chromosome = 22
-    golden_standard_fn = '%s/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.GBRsamples.maf005.recode.vcf' % (golden_standard_dir, chromosome)
-    for l in open(golden_standard_fn, 'r').readlines():
-        if 'CHROM' in l:
-            break
-    sample_col = l.rstrip().split('\t').index(sample)
-    
-    golden_standard_variants = []
-    golden_standard_gt = []
-    for chromosome in range(1, 23):
-        golden_standard_fn = '%s/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.GBRsamples.maf005.recode.vcf' % (golden_standard_dir, chromosome)
-        golden_standard_genotype = pd.read_csv(golden_standard_fn, comment="#", sep='\t', header = None, usecols=[0, 1, sample_col])
-        golden_standard_genotype.columns = ['CHR', 'POS', 'GT']
-        golden_standard_gt.append([np.sum(list(map(int, x.split('|')))) for x in golden_standard_genotype['GT']])
-        golden_standard_variants.append(['_'.join(map(str, x)) for x in zip(np.array(golden_standard_genotype['CHR']), np.array(golden_standard_genotype['POS']))])
-    
-    golden_standard_gt = [a for b in golden_standard_gt for a in b]
-    golden_standard_variants = [a for b in golden_standard_variants for a in b]
-    
-    golden_standard_dat = pd.DataFrame({"True_GT": golden_standard_gt})
-    golden_standard_dat.index = golden_standard_variants
-        
-    return golden_standard_dat
-
-
-
-VCF_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/'
-
-def readin_variant_caller_genotype(minDP, sample):    
-    print('Read in variants with minDP >= %d for %s ...' % (minDP, sample))
-    genotype_dosage_filename = '%s/minDP%d/%s.filtered.minDP%d.recode.dosage_genotype.bed' % (VCF_dir, minDP, sample, minDP)
-    genotype_dosage = pd.read_csv(genotype_dosage_filename, sep='\t', index_col = 0)    
-    print('Done, read %d variants' % len(genotype_dosage))
-    return genotype_dosage
-
-
-
-
-Imputation_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Imputation'
-
-def readin_imputation_genotype(minDP,sample): 
-    print('Read in imputed variants with minDP >= %d for %s' % (minDP, sample))
-    imputation_filename = '%s/minDP%d/%s.filtered.minDP%d.imputed.dosage_genotype.bed' % (Imputation_dir, minDP, sample, minDP)
-    genotype_imputed = pd.read_csv(imputation_filename, sep=' ', index_col = 0, header = None)
-    genotype_imputed.columns = ['GT', 'Imputed_dosage']
-    genotype_imputed['Imputed_GT'] = [np.sum(list(map(int, x.split('|')))) for x in np.array(genotype_imputed['GT'])]
-    genotype_imputed = genotype_imputed[['Imputed_dosage','Imputed_GT']]
-    print('Done, read %d variants' % len(genotype_imputed))
-    
-    return genotype_imputed
-
-
-# In[6]:
-
-
-def obtain_confustion_matrix_r2(combined_dat, golden_variants):
-    combined_dat = combined_dat.copy()
-    combined_dat.columns = ['Dosage', 'GT', 'True_GT']
-        
-    recovered_dat = combined_dat[~combined_dat['GT'].isnull()]
-    recovered_dat = recovered_dat[recovered_dat['Dosage'] != -1]
-    called_variants = pd.DataFrame.from_dict(Counter(recovered_dat['GT']), orient='index')
-    pearson_correlation = np.corrcoef(np.array(recovered_dat['Dosage']), 
-                                      np.array(recovered_dat['True_GT']))[0][1]
-    
-    correct_dat = recovered_dat[recovered_dat['GT'] == recovered_dat['True_GT']]
-    correct_variants = pd.DataFrame.from_dict(Counter(correct_dat['GT']), orient='index')
-    
-    confusion_matrix = golden_variants.merge(called_variants, left_index=True, right_index=True).merge(correct_variants, left_index=True, right_index=True)
-    confusion_matrix.columns = ['Golden_standard', 'Called', 'Called_and_True']    
-    
-    confusion_matrix['Precision'] = confusion_matrix['Called_and_True'] / confusion_matrix['Called']
-    confusion_matrix['Recall'] = confusion_matrix['Called_and_True'] / confusion_matrix['Golden_standard']
-    confusion_matrix['Pearson_correlation'] = pearson_correlation
-    confusion_matrix['True_GT'] = list(map(int, confusion_matrix.index))
-
-    return confusion_matrix
-
-
-# In[7]:
-
-
-save_dir = 'Performance'
 from matplotlib import pyplot as plt
-import seaborn as sns
-sns.set(font_scale = 1.2)
-sns.set_style('whitegrid')
 
-def compare_called_variants_to_golden_standard(minDP, sample, plot_dosage = False):      
+
+# In[2]:
+
+
+def compare_called_variants_to_golden_standard(golden_standard_genotype, minDP, sample, plot_dosage = False):      
+    
     # golden standard
-    golden_standard_genotype = readin_golden_standard_genotype(sample = sample)
     golden_variants = pd.DataFrame.from_dict(Counter(golden_standard_genotype['True_GT']), orient='index')
     
     # genotype caller
-    called_genotype = readin_variant_caller_genotype(minDP=minDP, sample=sample)  
-    called_genotype_combined = called_genotype.merge(golden_standard_genotype, left_index = True, right_index=True, how = 'right')
-    conf_called = obtain_confustion_matrix_r2(called_genotype_combined, golden_variants)
+    [called_genotype, variants_count] = readin_variant_caller_genotype(VCF_dir, minDP, sample)  
+    called_genotype_combined = called_genotype.merge(golden_standard_genotype, left_index = True, right_index=True)
+    conf_called = obtain_confustion_matrix_r2(called_genotype_combined, golden_variants, variants_count)
     conf_called.to_csv('%s/%s_minDP%d_genotype_caller_number_precision_recall_r.txt' % (save_dir, sample, minDP), index = False)
     
     # imputation
-    imputed_genotype = readin_imputation_genotype(minDP=minDP, sample=sample)  
-    imputed_genotype_combined = imputed_genotype.merge(golden_standard_genotype, left_index = True, right_index=True, how = 'right')
-    conf_imputed = obtain_confustion_matrix_r2(imputed_genotype_combined, golden_variants)
+    [imputed_genotype, variants_count_imputed] = readin_imputation_genotype(Imputation_dir, minDP, sample)   
+    imputed_genotype_combined = imputed_genotype.merge(golden_standard_genotype, left_index = True, right_index=True)
+    conf_imputed = obtain_confustion_matrix_r2(imputed_genotype_combined, golden_variants, variants_count_imputed)
     conf_imputed.to_csv('%s/%s_minDP%d_imputation_number_precision_recall_r.txt' % (save_dir, sample, minDP), index = False)
     
-    # combined the two sources
-    called_genotype_combined = called_genotype_combined[~called_genotype_combined['Dosage'].isnull()]
-    called_genotype_combined = called_genotype_combined[called_genotype_combined['Dosage'] != -1]
-
-    imputed_genotype_combined = imputed_genotype_combined[~imputed_genotype_combined['Imputed_dosage'].isnull()]
-    imputed_genotype_combined = imputed_genotype_combined[imputed_genotype_combined['Imputed_dosage'] != -1]
-
     if plot_dosage:
         plt.figure()
         plt.hist(called_genotype['Dosage'], histtype = 'step', label = 'Genotype caller', bins = 50, linewidth = 2, color = 'orange')
@@ -133,18 +46,76 @@ def compare_called_variants_to_golden_standard(minDP, sample, plot_dosage = Fals
         plt.xlim([-0.1, 2.1])
         plt.tight_layout()
         plt.savefig('%s/%s_minDP%d_dosage_distribution.png' % (save_dir, sample, minDP))
-        plt.close()
-
-    called_in_both = called_genotype_combined.merge(imputed_genotype_combined, left_index=True, right_index=True)
+        plt.close()    
+        
+    # combined the two sources
+    called_in_both = called_genotype.merge(imputed_genotype, left_index=True, right_index=True)
+    called_only_from_gc = list(set(called_genotype.index) - set(imputed_genotype.index))
+    called_only_from_imputation = list(set(imputed_genotype.index) - set(called_genotype.index))
+    called_both_consistent = called_in_both[called_in_both['GT'] == called_in_both['Imputed_GT']]
+    called_both_inconsistent = called_in_both[called_in_both['GT'] != called_in_both['Imputed_GT']]
     
-    return called_in_both
+    variants_compostion = [len(called_only_from_gc), len(called_only_from_imputation), 
+                           len(called_both_consistent), len(called_both_inconsistent)]
+    variants_compostion = pd.DataFrame(variants_compostion).transpose()
+    variants_compostion.columns = ['Only_from_gc', 'Only_from_imputation', 'Two_consistent', 'Two_inconsistent']
+    variants_compostion.to_csv('%s/%s_minDP%d_variants_numbers.txt' % (save_dir, sample, minDP), sep='\t', index = False)
+
+    dat1 = called_genotype.loc[np.array(called_only_from_gc)]
+    dat2 = imputed_genotype.loc[np.array(called_only_from_imputation)]
+    
+    dat31 = called_genotype.loc[np.array(called_both_consistent.index)]
+    dat32 = imputed_genotype.loc[np.array(called_both_consistent.index)]
+    dat3 = pd.DataFrame({"Dosage": (dat31['Dosage'] + dat32['Imputed_dosage']) / 2, "GT": dat32['Imputed_GT']}) 
+
+    dat1.columns = ['Dosage', 'GT']
+    dat2.columns = ['Dosage', 'GT']
+    dat3.columns = ['Dosage', 'GT']
+
+    # 1). discard all inconsistent calls
+    intergrated_dat = dat1.append(dat2).append(dat3)
+    intergrated_variants = pd.DataFrame.from_dict(Counter(intergrated_dat['GT']), orient='index')
+    
+    intergrated_genotype_combined = intergrated_dat.merge(golden_standard_genotype, left_index = True, right_index=True)
+    conf_overall_no_inconsistent = obtain_confustion_matrix_r2(intergrated_genotype_combined, golden_variants, intergrated_variants)
+    conf_overall_no_inconsistent.to_csv('%s/%s_minDP%d_combined_no_inconsistent_number_precision_recall_r.txt' % (save_dir, sample, minDP), index = False)
+    
+    # 2). add variant learned from the model
+    try:
+        dat4 = pd.read_csv('%s/output/%s_minDP%d_inconsistent_variants.txt' % (training_model_dir, sample, minDP), sep='\t', index_col = 0)
+    except:
+        return
+    
+    dat4.columns = ['Dosage', 'GT']
+    
+    intergrated_dat = intergrated_dat.append(dat4)
+    intergrated_variants = pd.DataFrame.from_dict(Counter(intergrated_dat['GT']), orient='index')
+    
+    intergrated_genotype_combined = intergrated_dat.merge(golden_standard_genotype, left_index = True, right_index=True)
+    conf_overall_with_inconsistent = obtain_confustion_matrix_r2(intergrated_genotype_combined, golden_variants, intergrated_variants)
+    conf_overall_with_inconsistent.to_csv('%s/%s_minDP%d_combined_with_inconsistent_number_precision_recall_r.txt' % (save_dir, sample, minDP), index = False)
+        
+    return
+    
 
 
-# In[8]:
+# In[6]:
 
 
-minDP = 2
-sample = 'HG00096'
+if __name__ == '__main__':
 
-dat = compare_called_variants_to_golden_standard(minDP = minDP, sample=sample, plot_dosage=True)
+    minDP = 2
+    sample = 'HG00096'
+    plot_dosage = True
+
+    golden_standard_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/sample_maf_0.05'
+    VCF_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/'
+    Imputation_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Imputation'
+
+    training_model_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Model'
+    save_dir = 'Performance'
+    
+    # golden standard    
+    golden_standard_genotype = readin_golden_standard_genotype(golden_standard_dir, sample)
+    compare_called_variants_to_golden_standard(golden_standard_genotype, minDP, sample, plot_dosage = plot_dosage)
 

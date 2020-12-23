@@ -43,8 +43,8 @@ def collect_inconsistent_variants(minDP, sample):
 
 if __name__ == '__main__':
 
-    minDP = 2
-    sample = 'HG00096'
+    minDP = int(sys.argv[1])
+    sample = sys.argv[2]
 
     golden_standard_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/Genotype/sample_maf_0.05'
     VCF_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/VCF_files/'

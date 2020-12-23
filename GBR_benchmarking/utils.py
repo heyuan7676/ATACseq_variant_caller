@@ -74,3 +74,25 @@ def readin_imputation_genotype(Imputation_dir, minDP,sample):
     return [genotype_imputed, called_variants]
 
 
+
+def obtain_confustion_matrix_r2(combined_dat, golden_variants, called_variants):
+    combined_dat = combined_dat.copy()
+    combined_dat.columns = ['Dosage', 'GT', 'True_GT']
+        
+    correct_dat = combined_dat[combined_dat['GT'] == combined_dat['True_GT']]
+    correct_variants = pd.DataFrame.from_dict(Counter(correct_dat['GT']), orient='index')
+    
+    confusion_matrix = golden_variants.merge(called_variants, left_index=True, right_index=True).merge(correct_variants, left_index=True, right_index=True)
+    confusion_matrix.columns = ['Golden_standard', 'Called', 'Called_and_True']    
+    
+    confusion_matrix['Precision'] = confusion_matrix['Called_and_True'] / confusion_matrix['Called']
+    confusion_matrix['Recall'] = confusion_matrix['Called_and_True'] / confusion_matrix['Golden_standard']
+    
+    confusion_matrix['True_GT'] = list(map(int, confusion_matrix.index))
+    
+    combined_dat = combined_dat[~combined_dat['True_GT'].isnull()]
+    pearson_correlation = np.corrcoef(np.array(combined_dat['Dosage']), 
+                                      np.array(combined_dat['True_GT']))[0][1]
+    confusion_matrix['Pearson_correlation'] = pearson_correlation
+
+    return confusion_matrix
