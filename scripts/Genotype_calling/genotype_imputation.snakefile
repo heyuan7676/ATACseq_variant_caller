@@ -10,7 +10,7 @@ rule gvcf2vcf_gatk:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     output:
-        gzfile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz')
+        gzfile = temp(os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz'))
     params:
         vcffile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf'),
         gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
@@ -113,7 +113,7 @@ rule merge_chrs:
         header = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.header.txt"),
         files = expand(os.path.join(VCF_DIR, "minDP" + "{{minDP}}", "GRCh37", "{{indiv}}", "{{indiv}}_chr{chr}.imputed.dose.vcf.gz"), chr = CHROM)
     output:
-        vcf_file = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf"),
+        vcf_file = temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf")),
     shell:
         """
         cat {input.header} | sed 's/chr//g'  > {output.vcf_file}
@@ -123,14 +123,14 @@ rule merge_chrs:
 
 rule obtain_genotype_dosage:
     input:
-        os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf")
+        os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf")
     output:
-        dosage = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed")
+        dosage = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed")
     conda:
         "../envs/env_py37.yml"
     shell:
         """
-        {BCFTOOLS} query -f '%CHROM\t%POS\t[%GT\t%DS]\n' {input} | awk "{{print "'"chr"'"\$1,\$2,\$5 = \$2 + 1,\$3,\$4}}" > {output.dosage}
+        {BCFTOOLS} query -f '%CHROM\t%POS\t[%GT\t%DS]\n' {input} | awk "{{print "'"chr"'"\$1,\$5 = \$2 - 1,\$2, \$3,\$4}}" > {output.dosage}
         """
 
 
@@ -140,15 +140,55 @@ LIFTOVER_DIR = "/work-zfs/abattle4/heyuan/tools/liftOver"
 
 rule lift_dosage_to_GRCh38:
     input:
-        dosage = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed"),
+        dosage = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed"),
+    params:
+        lifted = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed"),
+        unlifted = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed.unlifted"),
     output:
-        lifted = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed"),
-        unlifted = os.path.join(BOWTIE_DIR, 'Imputation', 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh38.bed.unlifted")
+        temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.allVariants.dosage_genotype.bed"))
     shell:
         """
         cd {LIFTOVER_DIR}
-        ./liftOver {input.dosage} hg19ToHg38.over.chain.gz {output.lifted} {output.unlifted}
+        ./liftOver {input.dosage} hg19ToHg38.over.chain.gz {params.lifted} {params.unlifted}
+        cat {params.lifted} | sed "s/chr//g" | awk "{{print \$1"'"_"'"\$3, \$4,\$5}}" > {output}
         """
 
 
+
+oneK_variants_locations = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/onek_genome_data/1k_genome.maf005.variants.locations.bed' 
+rule restrict_to_common_variants:
+    input:
+        allVariant = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.allVariants.dosage_genotype.bed"),
+        common_variants = {oneK_variants_locations}
+    output:
+        temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.bed"))
+    shell:
+        """
+        awk "NR==FNR {{id[\$4]; next}} \$1 in id" {input.common_variants} {input.allVariant} > {output}
+        """
+
+
+
+rule extract_snpids:
+    input:
+        genotype = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.bed")
+    output:
+        snp_ids = temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.snpids.bed"))
+    shell:
+        """
+        awk "{{print \$1}}" {input.genotype} | sort | uniq -u > {output.snp_ids}
+        """
+
+
+
+rule remove_duplicated_calls:
+    input:
+        genotype = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.bed"),
+        snp_ids = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.snpids.bed")
+    output:
+        genotype_unique_ids = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.dosage_genotype.bed")
+    shell:
+        """
+        awk "NR==FNR {{id[\$1]; next}} \$1 in id" {input.snp_ids} {input.genotype} | sort -k1,1 | sed 's/ /	/g' > {output.genotype_unique_ids}
+        """
 
