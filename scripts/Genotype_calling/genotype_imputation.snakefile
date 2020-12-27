@@ -6,22 +6,6 @@ REF_FN = "/work-zfs/abattle4/heyuan/database/GRCh37_reference/hg19.fa"
 Filter variants and prepare data for imputation
 '''
 
-rule gvcf2vcf_gatk:
-    input:
-        os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
-    output:
-        gzfile = temp(os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz'))
-    params:
-        vcffile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf'),
-        gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
-    shell:
-        """
-        {GATK} GenotypeGVCFs -R {GENOME} -V {input} -O {params.vcffile}
-        bgzip {params.vcffile}
-        rm -f {params.gvcf_index_file}
-        """
-
-
 rule filterVCF_minDP_for_imputation:
     input:
         os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz')

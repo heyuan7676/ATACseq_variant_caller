@@ -21,7 +21,7 @@ rule GATK_haplotypecaller:
 
 
 '''
-Filter variants
+Prepare vcf files for 1). collecting variant called; 2). use as input for imputation
 '''
 rule filter_no_reads:
     input:
@@ -37,6 +37,27 @@ rule filter_no_reads:
         bgzip {params.fn}
         """
 
+
+
+rule gvcf2vcf_gatk:
+    input:
+        os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
+    output:
+        gzfile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf.gz')
+    params:
+        vcffile = os.path.join(VCF_DIR, '{indiv}.forimputation.vcf'),
+        gvcf_index_file = os.path.join(VCF_DIR, '{indiv}.gvcf.gz.tbi')
+    shell:
+        """
+        {GATK} GenotypeGVCFs -R {GENOME} -V {input} -O {params.vcffile}
+        bgzip {params.vcffile}
+        rm -f {params.gvcf_index_file}
+        """
+
+
+'''
+Filter variants
+'''
 
 rule filterVCF_minDP:
     input:
@@ -62,7 +83,7 @@ Process VCF file to obtain INFO
 
 rule format_info:
     input:
-        os.path.join(VCF_DIR, '{indiv}.vcf.gz')
+        os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz')
     params:
         os.path.join(VCF_DIR, '{indiv}.filtered.recode.INFO.vcf')
     output:
