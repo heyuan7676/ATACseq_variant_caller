@@ -48,7 +48,7 @@ VCFFN = config['VCFFN']
 
 THREADS = config['THREADS']
 minDP_arr = config['minDP_arr']
-minDP_arr = ['6']
+minDP_arr = ['4']
 for dp in minDP_arr:
     os.makedirs(os.path.join(VCF_DIR, 'minDP' + dp), exist_ok = True)
     os.makedirs(os.path.join(GENOTYPE_DIR, 'minDP'+ dp), exist_ok = True)
@@ -71,12 +71,13 @@ include : '../scripts/Genotype_calling/variant_calling.snakefile'
 include : '../scripts/Genotype_calling/genotype_imputation.snakefile'
 include : '../scripts/Genotype_calling/obtain_genotype_called.snakefile'
 include : '../scripts/Genotype_calling/obtain_genotype_imputed.snakefile'
+include : '../scripts/Genotype_calling/obtain_genotype_integrated.snakefile'
 
-
-output_suffix = 'recode'
+output_suffix_called = 'recode'
+output_suffix_integrated = 'with_Inconsistent'
 ''' Snakemake rules '''
 rule all:
     input:
-        expand(os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz'), minDP = minDP_arr, indiv = INDIVS),
         expand(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}.txt"), minDP = minDP_arr, chr = CHROM),
-        #expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + output_suffix + ".txt"), minDP = minDP_arr, chr = CHROM),
+        expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + output_suffix_called + ".txt"), minDP = minDP_arr, chr = CHROM),
+        expand(os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + output_suffix_integrated+ ".txt"), minDP = minDP_arr, chr = CHROM)
