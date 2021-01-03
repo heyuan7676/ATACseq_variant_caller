@@ -47,7 +47,7 @@ def convert_gt_to_number(arri):
 
 
 def obtain_numerical_gt(gt_dat, samples):
-
+    'deprecated'
     gt_numerical_dat = []
     print('In total %d variants are converted' % len(gt_dat))
     start = time.time()
@@ -74,15 +74,10 @@ def obtain_numerical_gt(gt_dat, samples):
     
 
 
-def readin_genotype(Genotype_dir, chromosome, samples, snps = None):
+def readin_genotype(Genotype_dir, chromosome, samples, suffix = ''):
     ## Read in Genotpye
-
-    gt_dat = pd.read_csv('%s/gt_by_sample_matrix_chr%d.txt' % (Genotype_dir, chromosome), sep=' ', low_memory=False)
-    gt_dat = gt_dat[[x for x in gt_dat.columns if 'Unnamed' not in x]]
-    gt_dat = gt_dat.replace('./.', '0')
-    gt_dat = gt_dat.replace(0, '0')
-    [gt_numerical_dat, numbers] = qc_genotype_dat(gt_dat, samples, snps = snps)
-
+    gt_dat = pd.read_csv('%s/dosage_by_sample_matrix_chr%d%s.txt' % (Genotype_dir, chromosome, suffix), sep=' ', low_memory=False)
+    [gt_numerical_dat, numbers] = qc_genotype_dat(gt_dat, samples)
     return [gt_numerical_dat, numbers]
 
 
@@ -95,29 +90,29 @@ def read_in_1k_variants(chromosome):
 
 
 
-def read_in_WGS_GT(prefix, WGS_dir, samples_peaks = None, snps = None):
-    WGS_fn = '%s/%s.genotypes.tsv' % (WGS_dir, prefix)
+def read_in_WGS_GT(WGS_dir, chromosome, samples_peaks = None):
+    WGS_fn = '%s/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.GBRsamples.maf005.recode.GT.FORMAT' % (WGS_dir, chromosome)
     WGS_result = pd.read_csv(WGS_fn, comment = '$', sep='\t', low_memory=False)
     WGS_result = WGS_result.drop_duplicates()
 
-    WGS_result.index = WGS_result[['#CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
-    WGS_result = WGS_result.replace('./.', '0')
-    WGS_result = WGS_result.replace(0, '0')
+    WGS_result.index = WGS_result[['CHROM', 'POS']].apply(lambda x: '_'.join((str(x[0]), str(x[1]))), axis=1)
+    WGS_result = WGS_result.replace('./.', '-1/-1')
+    WGS_result = WGS_result.replace(0, '-1/-1')
 
-    # use only the SNPs from called genotypes
-    if snps is not None:
-        WGS_result = WGS_result.loc[np.intersect1d(snps, np.array(WGS_result.index))]
-
-    WGS_result = WGS_result.drop_duplicates()
     WGS_result.columns = ['CHR', 'POS'] + list(WGS_result.columns[2:])
     WGS_result.index.name = 'CHR_POS'
     WGS_result = WGS_result.reset_index()
 
-    samples = WGS_result.columns
+    samples = [x for x in WGS_result.columns if x.startswith('HG')]
     if samples_peaks is not None:
     	samples = list(np.intersect1d(samples_peaks, samples))
+    for s in samples:
+        WGS_result[s] = [np.sum(list(map(int, x.split('|')))) for x in np.array(WGS_result[s])]
+
     [WGS_dat, numbers] = qc_genotype_dat(WGS_result, samples)
-    
+
+    WGS_dat = WGS_dat[~WGS_dat['CHR_POS'].duplicated()].reset_index(drop=True) 
+
     return [WGS_dat, samples, numbers]
 
 
@@ -138,36 +133,29 @@ def qc_genotype_dat(df, samples, MAC = 3, snps = None):
         df['CHR_POS'] = df.index
         df = df[['CHR_POS', 'CHR', 'POS']  + list(samples)]
         df = df.reset_index(drop = True)
-    print('Remove variants with not exist in 1000 Genome Project with MAF >= 0.05: %d --> %d' % (statistic[0], len(df)))
-    statistic.append(len(df))
+        print('Remove variants with not exist in 1000 Genome Project with MAF >= 0.05: %d --> %d' % (statistic[0], len(df)))
+        statistic.append(len(df))
 
     # remove variants with one genotype
-    validQTLsnps = np.where([len(set(x[x!='0'])) > 1 for x in np.array(df[samples])])[0]
+    validQTLsnps = np.where([len(set(x[x!=-1])) > 1 for x in np.array(df[samples])])[0]
     print('Remove variants with one genotype: %d --> %d' % (len(df), len(validQTLsnps)))
     statistic.append(len(validQTLsnps))
     df = df.iloc[validQTLsnps].reset_index(drop=True)
 
     # Filter on number of each allele > 3
-    all_alleles = [Counter('/'.join(gt_snpi).replace('0/', '').split('/')).values() for gt_snpi in np.array(df[samples])]
-    min_allele_count = [min(x) for x in all_alleles]
-    valid_snps = np.where(np.array(min_allele_count) >= MAC)[0]
+    valid_snps = np.where([np.sum(x[x!=-1]) >= MAC for x in np.array(df[samples])])[0]
     print('Remove variants with minor allele count < %d: %d --> %d' % (MAC, len(df), len(valid_snps)))
     statistic.append(len(valid_snps))
     df = df.iloc[valid_snps].reset_index(drop=True)
 
-    # in this step, remove the sites with more than two alleles, keep biallelic variants 
-    print('Convert genotype to numerical values')
-    df_gt = obtain_numerical_gt(df, samples)
-    print('Keep variants with bi-allelic genotype: %d --> %d' % (len(df), len(df_gt)))
-    statistic.append(len(df_gt))
-    
-    # again remove rows with only one genotype (ie. A/T and T/A)
-    validQTLsnps = np.where([len(set(x[x != (-1)])) >= 2 for x in np.array(df_gt[samples])])[0]
-    print('Remove variants with one genotype: %d --> %d' % (len(df_gt), len(validQTLsnps)))
-    df_gt = df_gt.iloc[validQTLsnps].reset_index(drop=True)
-    statistic.append(len(df_gt))
+    # Filter on number of each allele > 3
+    valid_snps = np.where([np.sum(2-x[x!=-1]) >= MAC for x in np.array(df[samples])])[0]
+    print('Remove variants with major allele count < %d: %d --> %d' % (MAC, len(df), len(valid_snps)))
+    statistic.append(len(valid_snps))
+    df = df.iloc[valid_snps].reset_index(drop=True)
 
-    return [df_gt, statistic] 
+
+    return [df, statistic] 
 
 
 

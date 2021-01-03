@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from statsmodels.regression import linear_model as sm
+from statsmodels.stats.multitest import multipletests
 from scipy import stats
 
 #### Compute QTL
@@ -34,13 +35,12 @@ def compute_QTL_gti_peaki(datapoint):
 
 
 
-def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
+def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat, samples):
     QTL_result_peaki = []
     [start, end] = [peaki['START'], peaki['END']]
     
     SNPs_close = np.where((np.array(gt_numerical_dat['POS']) < int(end + WINDOW)) * (np.array(gt_numerical_dat['POS']) > int(start - WINDOW)))[0]
    
-    samples = [x for x in gt_numerical_dat.columns if x.startswith('HG')] 
     bb = np.array(gt_numerical_dat.iloc[SNPs_close][samples])
     cc = np.array(post_pp_dat.iloc[SNPs_close][samples])
     aa = np.repeat(np.array(peaki[samples])[np.newaxis], len(bb), axis=0)
@@ -56,13 +56,26 @@ def compute_QTL_peaki(WINDOW, peaki, gt_numerical_dat, post_pp_dat):
 
 
 
-def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, saveSuffix = ''):
+def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, save_dir, saveSuffix = '', weight_df = None, use_GT = False):
+
+    samples1 = [x for x in peak_df.columns if x.startswith('HG')]
+    samples2 = [x for x in genotype_df.columns if x.startswith('HG')]
+    samples = np.intersect1d(samples1, samples2)
+    print('Run QTL for %d samples' % len(samples))
+
+    if weight_df is None:
+        weight_df = genotype_df.copy()
+        weight_df[samples] = 1
+
+    if use_GT:
+	gt = np.array([map(round, x) for x in np.array(genotype_df[samples])])    
+	genotype_df[samples] = gt
 
     QTL_results = pd.DataFrame()
     print('Compute QTLs for %d peaks ...' % len(peak_df))
     start = time.time()
     for p in range(len(peak_df)):
-        token = compute_QTL_peaki(WINDOW, peak_df.iloc[p], genotype_df, weight_df)
+        token = compute_QTL_peaki(WINDOW, peak_df.iloc[p], genotype_df, weight_df, samples)
         QTL_results = QTL_results.append(token)
         if (p+1) % 500 == 0:
             print('    %d peaks finished' % (p+1))
@@ -72,5 +85,40 @@ def compute_QTLs(chromosome, WINDOW, peak_df, genotype_df, weight_df, save_dir, 
     print("") 
     QTL_results = QTL_results.sort_values('P-value')
     QTL_results.to_csv('%s/CHR%d_caQTLs_WINDOW_%skb%s.txt' % (save_dir, chromosome, str(WINDOW/1000.0), saveSuffix), sep='\t', index = False)
+
+    return QTL_results
+
+
+
+def compute_QTL_peakLevel(WINDOW, save_dir, saveSuffix = ''):
+
+    try:
+        df_peakLevel = pd.read_csv('%s/All.CHR_%s' % (save_dir, file_suffix), sep='\t')
+        df_peakLevel = df_peakLevel[df_peakLevel['BH_pvalue'] < 0.05]
+        return df_peakLevel[['PeakID', 'CHR_POS', 'P-value', 'BH_pvalue']]
+
+    except:
+        print('Read in QTL data')
+
+    df_peakLevel = pd.DataFrame()
+    for chromosome in range(1,23):
+        fn1 = '%s/CHR%d_caQTLs_WINDOW_%skb%s.txt' % (save_dir, chromosome, str(WINDOW/1000.0), saveSuffix)
+        try:
+            dfi_peakLevel = pd.read_csv('%s_peakLevel' % fn1, sep='\t')
+        except:
+            dfi = pd.read_csv(fn1, sep='\t')
+            dfi = dfi[~dfi['P-value'].isnull()].reset_index(drop = True)
+            dfi_peakLevel = dfi.loc[dfi.groupby('PeakID')["P-value"].idxmin()]
+            dfi_peakLevel.to_csv('%s_peakLevel' % fn1, sep='\t', index = False)
+        df_peakLevel = df_peakLevel.append(dfi_peakLevel)
+
+    df_peakLevel = df_peakLevel[['PeakID','CHR_POS', 'P-value', 'Start','End']]
+    df_peakLevel['BH_pvalue'] = multipletests(df_peakLevel['P-value'], method='fdr_bh')[1]
+    df_peakLevel = df_peakLevel.sort_values('BH_pvalue')
+
+    fn2 = '%s/caQTLs_WINDOW_%skb%s_peakLevel.txt' % (save_dir, str(WINDOW/1000.0), saveSuffix)
+    df_peakLevel.to_csv(fn2,  sep='\t', index = False)
+
+    return df_peakLevel[['PeakID', 'CHR_POS', 'P-value', 'BH_pvalue']]
 
 
