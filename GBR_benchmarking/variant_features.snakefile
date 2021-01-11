@@ -29,6 +29,8 @@ INTERGRATED_DIR = os.path.join(BOWTIE_DIR, 'Integration')
 GENOTYPE_DIR = os.path.join(BOWTIE_DIR, 'Called_GT')
 TMP_DIR = config['TMP_DIR']
 
+PEAK_DIR_MACS2 = os.path.join(BOWTIE_DIR, 'Peaks_MACS2')
+PEAK_DIR_Genrich = os.path.join(BOWTIE_DIR, 'Peaks_Genrich')
 
 os.makedirs(FQ_DIR, exist_ok = True)
 os.makedirs(BOWTIE_DIR, exist_ok = True)
@@ -48,14 +50,7 @@ VCFFN = config['VCFFN']
 
 THREADS = config['THREADS']
 minDP_arr = config['minDP_arr']
-minDP_arr = ['4']
-for dp in minDP_arr:
-    os.makedirs(os.path.join(VCF_DIR, 'minDP' + dp), exist_ok = True)
-    os.makedirs(os.path.join(GENOTYPE_DIR, 'minDP'+ dp), exist_ok = True)
-    os.makedirs(os.path.join(VCF_DIR, 'minDP' + dp, 'GRCh37'), exist_ok = True)
-    for s in INDIVS:
-        os.makedirs(os.path.join(VCF_DIR, 'minDP' + dp, 'GRCh37', s), exist_ok = True)
-        os.makedirs(os.path.join(IMPUTE_DIR, 'minDP' + dp, s), exist_ok = True)
+minDP_arr = ['2','3', '4', '6']
 
 
 CHROM = config['CHROM']
@@ -65,19 +60,11 @@ wildcard_constraints:
 
 
 ## These need to after the global variables in order to use them 
-include : '../scripts/Genotype_calling/alignment.snakefile'
-include : '../scripts/Genotype_calling/processing_QC.snakefile'
-include : '../scripts/Genotype_calling/variant_calling.snakefile'
-include : '../scripts/Genotype_calling/genotype_imputation.snakefile'
-include : '../scripts/Genotype_calling/obtain_genotype_called.snakefile'
-include : '../scripts/Genotype_calling/obtain_genotype_imputed.snakefile'
-include : '../scripts/Genotype_calling/obtain_genotype_integrated.snakefile'
+include : '../scripts/Genotype_calling/collect_variant_features.snakefile'
 
-output_suffix_called = 'recode'
-output_suffix_integrated = 'with_Inconsistent'
+output_suffix = 'recode'
 ''' Snakemake rules '''
 rule all:
     input:
-        expand(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}.txt"), minDP = minDP_arr, chr = CHROM),
-        expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + output_suffix_called + ".txt"), minDP = minDP_arr, chr = CHROM),
-        expand(os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + output_suffix_integrated+ ".txt"), minDP = minDP_arr, chr = CHROM)
+        expand(os.path.join(VCF_DIR, 'minDP{minDP}', "{indiv}.filtered.recode.INFO.txt"),  minDP = minDP_arr, indiv = INDIVS),
+        expand(os.path.join(VCF_DIR, "minDP{minDP}", '{indiv}' + ".filtered.minDP{minDP}.recode.variants.toMACS2Peaks.txt"), minDP = minDP_arr, indiv = INDIVS)

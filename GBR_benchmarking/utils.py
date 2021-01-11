@@ -1,17 +1,9 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
 import os
 import sys
 import numpy as np
 import pandas as pd
 from collections import Counter
-
-
-# In[2]:
+import pdb
 
 
 def readin_golden_standard_genotype(golden_standard_dir, sample):    
@@ -21,14 +13,21 @@ def readin_golden_standard_genotype(golden_standard_dir, sample):
     for l in open(golden_standard_fn, 'r').readlines():
         if 'CHROM' in l:
             break
-    sample_col = l.rstrip().split('\t').index(sample)
-    
+    try:
+        sample_col = l.rstrip().split('\t').index(sample)
+    except:
+        print('%s not present in phase3 data from 1000 Genome' % sample)
+        return
+
     golden_standard_variants = []
     golden_standard_gt = []
     for chromosome in range(1, 23):
         golden_standard_fn = '%s/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.GBRsamples.maf005.recode.vcf' % (golden_standard_dir, chromosome)
         golden_standard_genotype = pd.read_csv(golden_standard_fn, comment="#", sep='\t', header = None, usecols=[0, 1, sample_col])
         golden_standard_genotype.columns = ['CHR', 'POS', 'GT']
+	multiallelic_variants = np.array( golden_standard_genotype['POS'][golden_standard_genotype['POS'].duplicated()])
+	biallelic_variants = np.array(list(set(golden_standard_genotype['POS']) - set(multiallelic_variants)))
+	golden_standard_genotype = golden_standard_genotype.set_index('POS').loc[biallelic_variants].reset_index()
         golden_standard_gt.append([np.sum(list(map(int, x.split('|')))) for x in golden_standard_genotype['GT']])
         golden_standard_variants.append(['_'.join(map(str, x)) for x in zip(np.array(golden_standard_genotype['CHR']), np.array(golden_standard_genotype['POS']))])
     
@@ -62,7 +61,7 @@ def readin_variant_caller_genotype(VCF_dir, minDP, sample):
 def readin_imputation_genotype(Imputation_dir, minDP,sample): 
     print('Read in imputed variants with minDP >= %d for %s' % (minDP, sample))
     imputation_filename = '%s/minDP%d/%s.filtered.minDP%d.imputed.dosage_genotype.bed' % (Imputation_dir, minDP, sample, minDP)
-    genotype_imputed = pd.read_csv(imputation_filename, sep=' ', index_col = 0, header = None)
+    genotype_imputed = pd.read_csv(imputation_filename, sep='\t', index_col = 0, header = None)
     genotype_imputed.columns = ['GT', 'Imputed_dosage']
     genotype_imputed['Imputed_GT'] = [np.sum(list(map(int, x.split('|')))) for x in np.array(genotype_imputed['GT'])]
     genotype_imputed = genotype_imputed[['Imputed_dosage','Imputed_GT']]
@@ -75,7 +74,7 @@ def readin_imputation_genotype(Imputation_dir, minDP,sample):
 
 
 
-def obtain_confustion_matrix_r2(combined_dat, golden_variants, called_variants):
+def obtain_confustion_matrix_r2(combined_dat, golden_variants, called_variants, group):
     combined_dat = combined_dat.copy()
     combined_dat.columns = ['Dosage', 'GT', 'True_GT']
         
@@ -94,5 +93,6 @@ def obtain_confustion_matrix_r2(combined_dat, golden_variants, called_variants):
     pearson_correlation = np.corrcoef(np.array(combined_dat['Dosage']), 
                                       np.array(combined_dat['True_GT']))[0][1]
     confusion_matrix['Pearson_correlation'] = pearson_correlation
+    confusion_matrix['Group'] = group
 
     return confusion_matrix
