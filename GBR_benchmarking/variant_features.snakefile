@@ -52,7 +52,6 @@ THREADS = config['THREADS']
 minDP_arr = config['minDP_arr']
 minDP_arr = ['2','3', '4', '6']
 
-
 CHROM = config['CHROM']
 wildcard_constraints:
     chr="\d+"
@@ -67,4 +66,5 @@ output_suffix = 'recode'
 rule all:
     input:
         expand(os.path.join(VCF_DIR, 'minDP{minDP}', "{indiv}.filtered.recode.INFO.txt"),  minDP = minDP_arr, indiv = INDIVS),
-        expand(os.path.join(VCF_DIR, "minDP{minDP}", '{indiv}' + ".filtered.minDP{minDP}.recode.variants.toMACS2Peaks.txt"), minDP = minDP_arr, indiv = INDIVS)
+        expand(os.path.join(VCF_DIR, "minDP{minDP}", '{indiv}' + ".filtered.minDP{minDP}.recode.variants.toMACS2Peaks.txt"), minDP = minDP_arr, indiv = INDIVS),
+        expand(os.path.join(IMPUTE_DIR, "minDP{minDP}", '{indiv}' + ".filtered.minDP{minDP}.imputed.variants.toMACS2Peaks.txt"), minDP = minDP_arr, indiv = INDIVS),
