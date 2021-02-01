@@ -6,21 +6,17 @@ library(cowplot)
 
 obtain_metric <- function(di, sample, pattern, group){
   correlation_dat = NULL
-  
-  cori = c(sample, pattern, "Pearson")
-  for(col in c("Dosage", "Imputed_dosage","Y_random_forest", "Y_linear_regression", "Y_logistic_regression")){
-    cori = c(cori, cor(di[,"True_GT"], di[,col]))
-  }
-  correlation_dat = rbind(correlation_dat, cori)
-  
+ 
+  column_list = c("Dosage", "Imputed_dosage","Y_random_forest",  "Y_linear_regression", "Y_logistic_regression", "Y_ordinal_regression")
+ 
   cori = c(sample, pattern, "Spearman")
-  for(col in c("Dosage", "Imputed_dosage","Y_random_forest", "Y_linear_regression", "Y_logistic_regression")){
+  for(col in column_list){
     cori = c(cori, cor(di[,"True_GT"], di[,col], method = 'spearman'))
   }
   correlation_dat = rbind(correlation_dat, cori)
   
   cori = c(sample, pattern, "MSE")
-  for(col in c("Dosage", "Imputed_dosage","Y_random_forest", "Y_linear_regression", "Y_logistic_regression")){
+  for(col in column_list){
     cori = c(cori, sum((di[,col] - di[,"True_GT"]) ** 2) /dim(di)[1])
   }
   correlation_dat = rbind(correlation_dat, cori)
@@ -72,9 +68,9 @@ readin_variants_df <- function(pattern, suffix){
   metrics_by_GT = as.data.frame(metrics_by_GT)
   metrics_by_dis = as.data.frame(metrics_by_dis)
  
-  colnames(metrics_all) = c("sample", "pattern", "Metric","GC", "IP", "RF", "LiR", "LgR", "Group")
-  colnames(metrics_by_GT) = c("sample", "pattern", "Metric","GC", "IP", "RF", "LiR", "LgR", "Group")
-  colnames(metrics_by_dis) = c("sample", "pattern", "Metric","GC", "IP", "RF", "LiR", "LgR", "Group")
+  colnames(metrics_all) = c("sample", "pattern", "Metric","GC", "IP", "RF", "LiR", "LgR", "OR", "Group")
+  colnames(metrics_by_GT) = c("sample", "pattern", "Metric","GC", "IP", "RF", "LiR", "LgR", "OR", "Group")
+  colnames(metrics_by_dis) = c("sample", "pattern", "Metric","GC", "IP", "RF",  "LiR", "LgR", "OR", "Group")
   
   return(list(metrics_all, metrics_by_GT, metrics_by_dis))
 }
@@ -84,8 +80,8 @@ readin_variants_df <- function(pattern, suffix){
 options(echo=TRUE) # if you want see commands in output file
 args <- commandArgs(trailingOnly = TRUE)
 
-minDP = as.numeric(args[1]) # 1
-SUFFIX = args[2] # 'THR0.1.txt'
+minDP = as.numeric(args[1]) # 2
+SUFFIX = args[2] # '_THR0.1.txt'
 
 training_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/Model'
 print(paste0('minDP', minDP))
@@ -96,6 +92,7 @@ if( file.exists(saved_file)){
 }else{
   resulti = readin_variants_df(paste0('minDP', minDP), SUFFIX)
   save(resulti, file = paste0('Performance/minDP', minDP, SUFFIX, '.RData'))
+  print(resulti[[1]])
 }
 
 

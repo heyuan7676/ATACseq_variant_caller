@@ -25,9 +25,9 @@ def readin_golden_standard_genotype(golden_standard_dir, sample):
         golden_standard_fn = '%s/ALL.chr%d.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.GBRsamples.maf005.recode.vcf' % (golden_standard_dir, chromosome)
         golden_standard_genotype = pd.read_csv(golden_standard_fn, comment="#", sep='\t', header = None, usecols=[0, 1, sample_col])
         golden_standard_genotype.columns = ['CHR', 'POS', 'GT']
-	multiallelic_variants = np.array( golden_standard_genotype['POS'][golden_standard_genotype['POS'].duplicated()])
-	biallelic_variants = np.array(list(set(golden_standard_genotype['POS']) - set(multiallelic_variants)))
-	golden_standard_genotype = golden_standard_genotype.set_index('POS').loc[biallelic_variants].reset_index()
+        multiallelic_variants = np.array( golden_standard_genotype['POS'][golden_standard_genotype['POS'].duplicated()])
+        biallelic_variants = np.array(list(set(golden_standard_genotype['POS']) - set(multiallelic_variants)))
+        golden_standard_genotype = golden_standard_genotype.set_index('POS').loc[biallelic_variants].reset_index()
         golden_standard_gt.append([np.sum(list(map(int, x.split('|')))) for x in golden_standard_genotype['GT']])
         golden_standard_variants.append(['_'.join(map(str, x)) for x in zip(np.array(golden_standard_genotype['CHR']), np.array(golden_standard_genotype['POS']))])
     
@@ -45,7 +45,7 @@ def readin_golden_standard_genotype(golden_standard_dir, sample):
 
 def readin_variant_caller_genotype(VCF_dir, minDP, sample):    
     print('Read in variants with minDP >= %d for %s ...' % (minDP, sample))
-    genotype_dosage_filename = '%s/minDP%d/%s.filtered.minDP%d.recode.dosage_genotype.bed' % (VCF_dir, minDP, sample, minDP)
+    genotype_dosage_filename = '%s/%s.filtered.minDP%d.recode.dosage_genotype.bed' % (VCF_dir, sample, minDP)
     genotype_dosage = pd.read_csv(genotype_dosage_filename, sep='\t', index_col = 0)    
     genotype_dosage = genotype_dosage[genotype_dosage['Dosage'] != -1]
     print('Done, read %d bi-allelic variants' % len(genotype_dosage))
@@ -60,7 +60,7 @@ def readin_variant_caller_genotype(VCF_dir, minDP, sample):
 
 def readin_imputation_genotype(Imputation_dir, minDP,sample): 
     print('Read in imputed variants with minDP >= %d for %s' % (minDP, sample))
-    imputation_filename = '%s/minDP%d/%s.filtered.minDP%d.imputed.dosage_genotype.bed' % (Imputation_dir, minDP, sample, minDP)
+    imputation_filename = '%s/%s.filtered.minDP%d.imputed.dosage_genotype.bed' % (Imputation_dir,sample, minDP)
     genotype_imputed = pd.read_csv(imputation_filename, sep='\t', index_col = 0, header = None)
     genotype_imputed.columns = ['GT', 'Imputed_dosage']
     genotype_imputed['Imputed_GT'] = [np.sum(list(map(int, x.split('|')))) for x in np.array(genotype_imputed['GT'])]
