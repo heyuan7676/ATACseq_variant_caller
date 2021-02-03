@@ -21,7 +21,7 @@ useModel = modelLINEAR; # modelANOVA, modelLINEAR, or modelLINEAR_CROSS
 root_dir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/ATAC_seq/alignment_bowtie/'
 
 # Genotype file name
-snp.dir = paste(root_dir, 'Dosage_for_QTL/minDP3/', method,'/Save_Matrix/', sep="") 
+snp.dir = paste(root_dir, 'Dosage_for_QTL/minDP3/', method,'/', sep="") 
 SNP_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,".txt", sep="");
 snps_location_file_name = paste(snp.dir, "called_genotypes_chromosome", CHROMOSOME,"_loc.bed", sep="");
 
