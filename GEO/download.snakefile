@@ -4,28 +4,22 @@ import os
 
 rule download:
     output:
-        temp(os.path.join(FQ_DIR, '{indiv}' + '.sra'))
+        reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq.gz')),
+        reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq.gz')),
     params:
-        outputdir = FQ_DIR
+        sra_file = temp(os.path.join(FQ_DIR, '{indiv}' + '.sra')),
+        outputdir = FQ_DIR,
+        reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq')),
+        reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq')),
     conda:
         "envs/env_py37.yml"
     shell:
         """
         rm -f {output}*
         {PREFETCH} {wildcards.indiv} -O {params.outputdir}
-        """
-
-
-rule transform_to_fa:
-    input:
-        os.path.join(FQ_DIR, '{indiv}' + '.sra')
-    output:
-        reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq')),
-        reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq')),
-    params:
-        outputdir = FQ_DIR
-    shell:
-        """
         cd {params.outputdir}
-        {FADUMP} --split-files {input}
+        {FADUMP} --split-files {params.sra_file}
+        gzip {params.reads1}
+        gzip {params.reads2}
         """
+

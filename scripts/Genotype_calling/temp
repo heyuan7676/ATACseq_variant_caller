@@ -1,0 +1,55 @@
+
+'''Collect genotype data'''					'''Collect genotype data'''
+
+							      >	SUFFIX = 'with_Inconsistent'
+							      >	rule extract_snpids_intg:
+							      >	    input:
+							      >	        genotype = os.path.join(INTERGRATED_DIR, 'minDP' + "{
+							      >	    output:
+							      >	        snp_ids = os.path.join(INTERGRATED_DIR, 'minDP' + "{m
+							      >	    shell:
+							      >	        """
+							      >	        awk "{{print \$1}}" {input.genotype} | sort | uniq -u
+							      >	        """
+							      >
+
+rule union_set_SNPs:					      |	rule union_set_SNPs_intg:
+    input:							    input:
+        expand(os.path.join(IMPUTE_DIR, 'minDP' + "{{minDP}}" |	        expand(os.path.join(INTERGRATED_DIR, 'minDP' + "{{min
+    output:							    output:
+        fn1 = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}",   |	        fn1 = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP
+        fn2 = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", ' |	        fn2 = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP
+    shell:							    shell:
+        """							        """
+        sort -mu {input} > {output.fn1}				        sort -mu {input} > {output.fn1}
+        paste <(cat {output.fn1}) <(cat {output.fn1} | cut -d	        paste <(cat {output.fn1}) <(cat {output.fn1} | cut -d
+        """							        """
+
+
+rule collect_genotype_union:				      |	rule collect_genotype_union_intg:
+    input:							    input:
+        gt = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{ |	        gt = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}
+        snps = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}",  |	        snps = os.path.join(INTERGRATED_DIR, 'minDP' + "{minD
+    output:							    output:
+        dosage = temp(os.path.join(IMPUTE_DIR, 'minDP' + "{mi |	        dosage = os.path.join(INTERGRATED_DIR, 'minDP' + "{mi
+    shell:							    shell:
+        """							        """
+        join -e -1 -o auto -a 1 -j 1 {input.snps} {input.gt}  |	        join -e -1 -o auto -a 1 -j 1 {input.snps} < {input.gt
+        """							        """
+
+
+rule obtain_dosage_matrix:				      |
+							      >	rule obtain_dosage_matrix_intg:
+    input:							    input:
+        dosage = expand(os.path.join(IMPUTE_DIR, 'minDP' + "{ |	        dosage = expand(os.path.join(INTERGRATED_DIR, 'minDP'
+        snps = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}",  |	        snps = os.path.join(INTERGRATED_DIR, 'minDP' + "{minD
+    output:							    output:
+        bychr = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", |	        bychr = os.path.join(INTERGRATED_DIR, 'minDP' + "{min
+    shell:							    shell:
+        """							        """
+        echo "CHR_POS CHR POS {INDIVS}" | tr "\\n" " " > {out	        echo "CHR_POS CHR POS {INDIVS}" | tr "\\n" " " > {out
+        echo "" >> {output.bychr}				        echo "" >> {output.bychr}
+        paste {input.snps} {input.dosage} | awk "{{if((\$2 ==	        paste {input.snps} {input.dosage} | awk "{{if((\$2 ==
+        """							        """
+
+

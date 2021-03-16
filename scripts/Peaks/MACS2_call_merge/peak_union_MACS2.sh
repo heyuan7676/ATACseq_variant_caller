@@ -6,7 +6,7 @@
 source ~/.bash_profile
 
 ROOT_DIR="$1"
-cd ${ROOT_DIR}/Peaks
+cd ${ROOT_DIR}/Peaks_MACS2
 
 # Label your input BED files so that their IDs uniquely identify their intervals
 for f in *_peaks.narrowPeak
@@ -17,7 +17,7 @@ done
 
 
 # Take the union of all these ID-tagged files with BEDOPS bedops 
-bedops --everything HG*.id.bed | bedmap --echo --echo-map-id-uniq --delim '\t' - > all.bed
+bedops --everything SRR*.id.bed | bedmap --echo --echo-map-id-uniq --delim '\t' - > all.bed
 
 # Get an interval that has regions in common with at least 5 input files 
 awk -vthreshold=3 '(split($5, ids, ";") >= threshold)' all.bed | awk '{print $1,$2,$3,$4}' | sort -k1,1 -k2,2n | sed 's/ /	/g' > union-thresholded_level0.bed

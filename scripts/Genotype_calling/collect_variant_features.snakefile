@@ -8,7 +8,7 @@ Process VCF file to obtain INFO
 
 rule format_info:
     input:
-        os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz')
+        os.path.join(VCF_DIR, '{indiv}.save.recode.vcf.gz')
     output:
         os.path.join(VCF_DIR, 'minDP{minDP}', "{indiv}.filtered.recode.INFO.txt")
     shell:
@@ -52,7 +52,7 @@ rule obtain_snp_bed_file_imputation:
         temp(os.path.join(IMPUTE_DIR, "minDP{minDP}", '{indiv}' + ".filtered.minDP{minDP}.imputed.variants.bed"))
     shell:
         """
-        paste <(cut -d'_' -f1 {input} ) <(cut -d'_' -f2 {input} | awk "{{print \$1 = \$1-1}}")  <(cut -d'_' -f2 {input} | awk "{{print \$1}}") <(awk "{{print \$1}}" {input} ) | sed "1d" | sort -k1,1 -k2,2n > {output}
+        paste <(cut -d'_' -f1 {input} ) <(cut -d'_' -f2 {input} | awk "{{print \$1 = \$1-1}}")  <(cut -d'_' -f2 {input} | awk "{{print \$1}}") <(awk "{{print \$1}}" {input} ) | sort -k1,1 -k2,2n > {output}
         """
 
 

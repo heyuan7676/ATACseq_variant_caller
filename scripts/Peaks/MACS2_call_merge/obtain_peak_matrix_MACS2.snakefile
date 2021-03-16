@@ -3,15 +3,15 @@ import os
 configfile: 'config.yaml'
 
 BOWTIE_DIR = config['BOWTIE_DIR']
-PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
-Peak_OUTPUT_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
+PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks_MACS2')
+Peak_OUTPUT_DIR = os.path.join(BOWTIE_DIR, 'Peaks_MACS2')
 DIR_FIRST_PASS = os.path.join(BOWTIE_DIR, 'first_pass_bqsr')
 
 PEAK_UNION_fn = os.path.join(Peak_OUTPUT_DIR, 'union-peaks.bed')
 
 INDIVS = glob_wildcards(os.path.join(PEAK_DIR, '{indiv}_peaks.narrowPeak'))
 INDIVS = INDIVS[0]
-INDIVS = [x for x in INDIVS if x.startswith('HG')]
+INDIVS = [x for x in INDIVS if x.startswith('SRR')]
 INDIVS.sort()
 
 CHROM = config['CHROM']
@@ -25,7 +25,7 @@ rule all:
         expand(os.path.join(Peak_OUTPUT_DIR, "peak_by_sample_matrix_chr{chr}.txt"), chr = CHROM)
 
 
-BLACKLIST = os.path.join(PEAK_DIR, 'hg38.blacklist.bed')
+BLACKLIST = os.path.join('/work-zfs/abattle4/heyuan/Variant_calling/datasets/hg38.blacklist.bed')
 rule remove_blackList:
     input:
         peaks = os.path.join(PEAK_DIR, 'union-thresholded_level9.bed')

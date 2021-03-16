@@ -29,8 +29,8 @@ rule liftHg38ToHg19:
         vcf_on_grch37 = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf")
     output:
         middle=temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.vcf.temp")),
-        rejected = temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.rejected.vcf")),
-        vcf_gz = temp(os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz"))
+        rejected = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.rejected.vcf"),
+        vcf_gz = os.path.join(VCF_DIR, "minDP" + "{minDP}", "GRCh37", "{indiv}", "{indiv}.forimputation.GRCh37.vcf.gz")
     shell:
         """
         zcat {input} |  grep "^#" > {output.middle}
@@ -109,7 +109,7 @@ rule obtain_genotype_dosage:
     input:
         os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.GRCh37.vcf")
     output:
-        dosage = temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed"))
+        dosage = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.imputed.dosage.GRCh37.bed")
     conda:
         "../envs/env_py37.yml"
     shell:
@@ -170,7 +170,7 @@ rule remove_duplicated_calls:
         genotype = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.bed"),
         snp_ids = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}", "{indiv}.filtered.minDP{minDP}.imputed.commonVariants.dosage_genotype.snpids.bed")
     output:
-        genotype_unique_ids = temp(os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.dosage_genotype.bed"))
+        genotype_unique_ids = os.path.join(IMPUTE_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}.imputed.dosage_genotype.bed")
     shell:
         """
         awk "NR==FNR {{id[\$1]; next}} \$1 in id" {input.snp_ids} {input.genotype} | sort -k1,1 | sed 's/ /	/g' > {output.genotype_unique_ids}

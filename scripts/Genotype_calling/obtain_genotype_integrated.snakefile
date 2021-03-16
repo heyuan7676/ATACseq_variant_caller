@@ -1,14 +1,13 @@
 
 '''Collect genotype data'''
 
-SUFFIX = 'with_Inconsistent'
 rule extract_snpids_intg:
     input:
-        genotype = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}." + SUFFIX + ".dosage_genotype.bed")
+        genotype = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}_minDP{minDP}_variants_" + SUFFIX + ".txt")
     params:
-        os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}." + SUFFIX + ".dosage_genotype.bed_sorted")
+        os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}_minDP{minDP}_variants_" + SUFFIX + ".txt_sorted")
     output:
-        snp_ids = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}." + SUFFIX + ".dosage_genotype.snpids.bed")
+        snp_ids = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}_minDP{minDP}_variants_" + SUFFIX + ".snpids.txt")
     shell:
         """
         sort -k1,1 {input.genotype} > {params}
@@ -19,7 +18,7 @@ rule extract_snpids_intg:
 
 rule union_set_SNPs_intg:
     input:
-        expand(os.path.join(INTERGRATED_DIR, 'minDP' + "{{minDP}}", "{indiv}.filtered.minDP{{minDP}}." + SUFFIX + ".dosage_genotype.snpids.bed"), indiv = INDIVS)
+        expand(os.path.join(INTERGRATED_DIR, 'minDP' + "{{minDP}}", "{indiv}_minDP{{minDP}}_variants_" + SUFFIX + ".snpids.txt"), indiv = INDIVS)
     output:
         fn1 = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}",  "union-SNPs_integreated." + SUFFIX + ".bed"),
         fn2 = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", 'union-SNPs_integreated.' + SUFFIX + '.info.bed')
@@ -32,13 +31,13 @@ rule union_set_SNPs_intg:
 
 rule collect_genotype_union_intg:
     input:
-        gt = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}.filtered.minDP{minDP}." + SUFFIX + ".dosage_genotype.bed"),
+        gt = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}_minDP{minDP}_variants_" + SUFFIX + ".txt"),
         snps = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}",  "union-SNPs_integreated." + SUFFIX + ".bed"),
     output:
         dosage = os.path.join(INTERGRATED_DIR, 'minDP' + "{minDP}", "{indiv}." + SUFFIX + ".dosage_genotype.matrix.txt"),
     shell:
         """
-        join -e -1 -o auto -a 1 -j 1 {input.snps}  {input.gt} | awk "{{print \$3}}" > {output.dosage}
+        join -e -1 -o auto -a 1 -j 1 {input.snps}  {input.gt} | awk "{{print \$2}}" > {output.dosage}
         """
 
 

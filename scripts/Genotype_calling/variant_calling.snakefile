@@ -15,9 +15,11 @@ rule GATK_haplotypecaller:
         gvcf_gz = temp(os.path.join(VCF_DIR, '{indiv}.gvcf.gz'))
     threads: THREADS
     shell:
-        '{GATK} HaplotypeCaller -R {GENOME} -L {input.interesting_region} \
+        """
+        {GATK} HaplotypeCaller -R {GENOME} -L {input.interesting_region} \
             -I {input.bam} -O {output.gvcf_gz} --tmp-dir {TMP_DIR} --native-pair-hmm-threads {threads} \
-            -ERC GVCF'
+            -ERC GVCF
+        """
 
 
 '''
@@ -27,10 +29,10 @@ rule filter_no_reads:
     input:
         os.path.join(VCF_DIR, '{indiv}.gvcf.gz')
     params:
-        prefix = os.path.join(VCF_DIR, '{indiv}'),
-        fn = os.path.join(VCF_DIR, '{indiv}.recode.vcf')
+        prefix = os.path.join(VCF_DIR, '{indiv}.save'),
+        fn = os.path.join(VCF_DIR, '{indiv}.save.recode.vcf')
     output:
-        vcf=os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz'),
+        vcf=os.path.join(VCF_DIR, '{indiv}.save.recode.vcf.gz'),
     shell:
         """
         {VCFTOOLS} --gzvcf {input} --min-meanDP 2 --recode --recode-INFO-all --out {params.prefix}
@@ -61,7 +63,7 @@ Filter variants
 
 rule filterVCF_minDP:
     input:
-        os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz')
+        os.path.join(VCF_DIR, '{indiv}.save.recode.vcf.gz')
     output:
         os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz')
     params:
@@ -73,26 +75,6 @@ rule filterVCF_minDP:
         """
         {VCFTOOLS} --gzvcf {input} --min-meanDP {params.minimumdp} --recode --recode-INFO-all --out {params.prefix}
         bgzip {params.vcffile}
-        """
-
-
-
-'''
-Process VCF file to obtain INFO
-'''
-
-rule format_info:
-    input:
-        os.path.join(VCF_DIR, '{indiv}.recode.vcf.gz')
-    params:
-        os.path.join(VCF_DIR, '{indiv}.filtered.recode.INFO.vcf')
-    output:
-        os.path.join(VCF_DIR, "{indiv}.filtered.recode.INFO.formatted.vcf")
-    shell:
-        """
-        {BCFTOOLS} query -f '%CHROM\t%POS\t[%DP\t%PL\t%GQ]\n' {input} > {params}
-        paste -d"_" <(awk "{{print \$1}}" {params}) <(awk "{{print \$2,\$4}}" {params}) | sed "1d" | sort -k1,1 -k2,2 > {output}
-        rm {params}
         """
 
 
