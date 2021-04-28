@@ -16,9 +16,6 @@ sample_group = 1
 sample_levels[samples[1]] = paste0('S', sample_group)
 
 for(s in samples[2: length(samples)]){
-	if(s == "SRR7650918"){
-		break
-	}
 	potential_same_donor = which.max(sample_structure[s, names(sample_levels)])
 	if(length(potential_same_donor) == 0){
 		sample_group = sample_group + 1
@@ -35,4 +32,15 @@ for(s in samples[2: length(samples)]){
 	}
 }
 
+samples = read.table('/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/Haematopoiesis/Gencove/merged_vcf_files/samples.txt', header = F, stringsAsFactors = F)
+for(s in samples$V1){
+	if(!(s %in% names(sample_levels))){
+		sample_group = sample_group + 1
+		sample_levels[s] = paste0('S', sample_group)
+	}
+}
 write.table(data.frame(sample_levels), 'SraRunTables/correlation_Spearman_sample_structure.csv', sep='\t', quote =F)
+
+
+
+
