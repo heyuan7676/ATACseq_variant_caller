@@ -75,9 +75,7 @@ for(chromosome in seq(1,22)){
 	maf.dat.all = rbind(maf.dat.all, maf.dat)
 }
 maf.dat.all$maf = as.vector(sapply(maf.dat.all$maf, function(x) min(c(x, 1-x))))
-
-
-#dat_caQTL_withMAF = merge(dat_caQTL, maf.dat.all, by.x = 'X2', by.y='sid')
+dat_caQTL_withMAF = merge(dat_caQTL, maf.dat.all, by.x = 'X2', by.y='sid')
 #pv = apply(dat_caQTL_withMAF, 1, function(x) ifelse(x[4]>0, x[3], 1-x[3]))
 #z_score = qnorm(pv)
 #dat_caQTL_withMAF$se = dat_caQTL_withMAF$X5 / z_score
@@ -114,7 +112,7 @@ compute_coloc <- function(caQTL_df, eQTL_df, peakid, N_data1 = 500, N_data2 = 83
       dataset2[['type']] = 'quant'
       dataset2[['snp']] = caQTL_dat_for_coloc$X2 
 
-      print(c(geneid, peakid, min(eQTL_dat_for_coloc_genei$pval_nominal), min(caQTL_dat_for_coloc$X4)))
+      #print(c(geneid, peakid, min(eQTL_dat_for_coloc_genei$pval_nominal), min(caQTL_dat_for_coloc$X4)))
 
       if(length(intersect(dataset1[['snp']], dataset2[['snp']]) ) == 0){
 	coloc_result_i = c(0, -1, -1, -1, -1, -1)
@@ -151,7 +149,8 @@ result$H4 = as.numeric(as.character(result$H4))
 
 peak_loc = read_delim('/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/Haematopoiesis/Gencove/Peaks_MACS2/union-peaks.bed', delim = '\t', col_names = F)
 result = merge(result, peak_loc, by.x = 'peak', by.y = 'X4')
-
+result$tissue = tissue
+result$nSample = nSample
 
 result = result[rev(order(result$H4)), ]
 outdir = '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GEO/Haematopoiesis/Gencove/coloc_eQTLs/'
