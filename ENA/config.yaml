@@ -1,0 +1,43 @@
+
+
+# Directory where the outputs will be put
+DIR: 'run'
+
+
+# Chromosomes included
+CHROM : ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22']
+CHROM : ['22']
+# Prefix of a chromosome. Usually set to 'chr' (GRCh38) or '' (hg19)
+CHR_PREFIX : 'chr'
+
+# Bowtie
+BOWTIE_GENOME_INDEX : '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/grch38_1kgmaj'
+
+
+# database
+GENOME : '/work-zfs/abattle4/heyuan/database/GRCh38_reference/GRCh38.primary_assembly.genome.nochr.fa'
+VCFFN : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/vcf_Fn/ALL.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.GBRsampleRemoved.maf005.recode.vcf'
+
+# tools
+PREFETCH : '/work-zfs/abattle4/heyuan/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/prefetch'
+FADUMP : '/work-zfs/abattle4/heyuan/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump'
+PICARD : 'picard'
+GATK : '/work-zfs/abattle4/heyuan/tools/gatk-4.1.8.1/gatk'
+SAMTOOLS : 'samtools'
+BCFTOOLS : 'bcftools'
+VCFTOOLS : 'vcftools'
+MACS2 : '~/miniconda3/bin/macs2'
+GENRICH : '/work-zfs/abattle4/heyuan/tools/Genrich-master/Genrich'
+BEDTOOLS : 'bedtools'
+THREADS : 24
+
+# data dir
+FQ_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/fastq/'
+BOWTIE_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/ATAC_seq/alignment_bowtie'
+DATA_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/ATAC_seq/alignment_bowtie'
+TMP_DIR : '/dev/shm'
+
+GENCOVE_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/Gencove'
+
+# output
+DIR : 'output/'
