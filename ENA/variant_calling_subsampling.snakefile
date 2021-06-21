@@ -75,7 +75,7 @@ rule remove_chrprefix:
         os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.bam')
     output:
         rg_bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + '-RG.bam')),
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam'),
+        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam')),
         bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam.bai')
     params:
         label = '{indiv}',

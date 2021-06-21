@@ -7,17 +7,13 @@ rule download:
         reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq.gz')),
         reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq.gz')),
     params:
-        outdir = FQ_DIR,
-        reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq')),
-        reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq')),
+        outdir = FQ_DIR
     conda:
         "envs/env_py37.yml"
     shell:
         """
         cd {params.outdir}
         kingfisher get -r {wildcards.indiv} -m ena-ascp ena-ftp
-        gzip {params.reads1}
-        gzip {params.reads2} 
         """
 
 
@@ -52,7 +48,7 @@ rule peak_calling_macs2:
     input:
         os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.bam'),
     output:
-        bed = os.path.join(PEAK_DIR_MACS2, '{indiv}' + '-clean.bed'),
+        bed = temp(os.path.join(PEAK_DIR_MACS2, '{indiv}' + '-clean.bed')),
         output = os.path.join(PEAK_DIR_MACS2, '{indiv}' + '_peaks.narrowPeak'),
         cram = os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.cram')
     params:
