@@ -10,6 +10,8 @@ rule download:
         outdir = FQ_DIR,
         reads1 = temp(os.path.join(FQ_DIR, '{indiv}' + '_1.fastq')),
         reads2 = temp(os.path.join(FQ_DIR, '{indiv}' + '_2.fastq')),
+    conda:
+        "envs/env_py37.yml"
     shell:
         """
         cd {params.outdir}

@@ -9,15 +9,15 @@ RGPU = 'Unknown'
 FQ_subsampled_DIR = os.path.join(FQ_DIR, 'subsampling')
 rule subset_fastq:
     input:
-        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.gz'),
-        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.gz'),
+        reads1 = os.path.join(FQ_DIR, '{indiv}' + '_1.fastq.gz'),
+        reads2 = os.path.join(FQ_DIR, '{indiv}' + '_2.fastq.gz'),
     output:
         reads1 = temp(os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.subset.gz')),
         reads2 = temp(os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.subset.gz')),
     params:
         tool_dir = '/work-zfs/abattle4/heyuan/tools/seqtk',
-        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_1.subset.fastq'),
-        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_2.subset.fastq'),
+        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.subset'),
+        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.subset'),
     shell:
         """
         cd {params.tool_dir}
@@ -28,10 +28,10 @@ rule subset_fastq:
         """
 
 suffix = 'subset'
-rule align_to_hg38_subset:
+rule subset_fastq_alignment:
     input:
-        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_1.fastq.subset.gz'),
-        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_2.fastq.subset.gz'),
+        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.subset.gz'),
+        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.subset.gz'),
     output:
         sam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.sam')),
         sam_sorted = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix+ '.sorted.sam')),
@@ -55,10 +55,10 @@ rule align_to_hg38_subset:
 
 rule add_RG:
     input:
-        os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.bam')
+        os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.bam')
     output:
-        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam')),
-        bai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam.bai'))
+        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam')),
+        bai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai'))
     params:
         label = '{indiv}',
         grid = '{indiv}',
@@ -72,11 +72,11 @@ rule add_RG:
 
 rule remove_chrprefix:
     input:
-        os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.bam')
+        os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.bam')
     output:
         rg_bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + '-RG.bam')),
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_nochr.bam'),
-        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_nochr.bam.bai')
+        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam'),
+        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam.bai')
     params:
         label = '{indiv}',
         grid = '{indiv}',
@@ -93,8 +93,8 @@ rule remove_chrprefix:
 BOWTIE_FA = '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/GRCh38_noalt_as/GRCh38_noalt_as.fa'
 rule octopus_fast:
     input:
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam'),
-        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam.bai'),
+        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam'),
+        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai'),
     output:
          os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf')
     shell:
