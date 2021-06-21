@@ -11,28 +11,22 @@ CHROM : ['22']
 CHR_PREFIX : 'chr'
 
 # Bowtie
-BOWTIE_GENOME_INDEX : '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/grch38_1kgmaj'
+BOWTIE_GENOME_INDEX : '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/GRCh38_noalt_as/GRCh38_noalt_as'
 
-
-# database
-GENOME : '/work-zfs/abattle4/heyuan/database/GRCh38_reference/GRCh38.primary_assembly.genome.nochr.fa'
-VCFFN : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/GBR/vcf_Fn/ALL.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.GBRsampleRemoved.maf005.recode.vcf'
 
 # tools
-PREFETCH : '/work-zfs/abattle4/heyuan/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/prefetch'
-FADUMP : '/work-zfs/abattle4/heyuan/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump'
 PICARD : 'picard'
 GATK : '/work-zfs/abattle4/heyuan/tools/gatk-4.1.8.1/gatk'
 SAMTOOLS : 'samtools'
 BCFTOOLS : 'bcftools'
 VCFTOOLS : 'vcftools'
 MACS2 : '~/miniconda3/bin/macs2'
-GENRICH : '/work-zfs/abattle4/heyuan/tools/Genrich-master/Genrich'
+CRAMTOOLS : '~/miniconda3/bin/cramtools'
 BEDTOOLS : 'bedtools'
 THREADS : 24
 
 # data dir
-FQ_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/fastq/'
+FQ_DIR : '/scratch/users/yhe23@jhu.edu/fastq/'
 BOWTIE_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/ATAC_seq/alignment_bowtie'
 DATA_DIR : '/work-zfs/abattle4/heyuan/Variant_calling/datasets/ENA/ATAC_seq/alignment_bowtie'
 TMP_DIR : '/dev/shm'

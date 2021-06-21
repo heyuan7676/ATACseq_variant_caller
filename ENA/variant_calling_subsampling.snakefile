@@ -5,15 +5,38 @@ RGPU = 'Unknown'
 
 '''Map paired-ended fastq reads to genome using bowtie2'''
 
+'''Subset '''
+FQ_subsampled_DIR = os.path.join(FQ_DIR, 'subsampling')
+rule subset_fastq:
+    input:
+        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.gz'),
+        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.gz'),
+    output:
+        reads1 = temp(os.path.join(FQ_subsampled_DIR, '{indiv}' + '_1.fastq.subset.gz')),
+        reads2 = temp(os.path.join(FQ_subsampled_DIR, '{indiv}' + '_2.fastq.subset.gz')),
+    params:
+        tool_dir = '/work-zfs/abattle4/heyuan/tools/seqtk',
+        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_1.subset.fastq'),
+        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_2.subset.fastq'),
+    shell:
+        """
+        cd {params.tool_dir}
+        ./seqtk sample -s100 {input.reads1} 5000000 > {params.reads1}
+        ./seqtk sample -s100 {input.reads2} 5000000 > {params.reads2}
+        gzip {params.reads1}
+        gzip {params.reads2}
+        """
+
+suffix = 'subset'
 rule align_to_hg38_subset:
     input:
-        reads1 = os.path.join(FQ_DIR, '{indiv}' + 'subset_1.fastq.gz'),
-        reads2 = os.path.join(FQ_DIR, '{indiv}' + 'subset_2.fastq.gz'),
+        reads1 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_1.fastq.subset.gz'),
+        reads2 = os.path.join(FQ_subsampled_DIR, '{indiv}' + 'subset_2.fastq.subset.gz'),
     output:
-        sam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.sam')),
-        sam_sorted = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.sorted.sam')),
-        sambai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.sorted.sam.bai')),
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.bam'),
+        sam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.sam')),
+        sam_sorted = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix+ '.sorted.sam')),
+        sambai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix+ '.sorted.sam.bai')),
+        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix+ '.bam')),
     params:
         index = BOWTIE_GENOME_INDEX,
     threads:
@@ -34,8 +57,8 @@ rule add_RG:
     input:
         os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '.bam')
     output:
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam'),
-        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam.bai')
+        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam')),
+        bai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam.bai'))
     params:
         label = '{indiv}',
         grid = '{indiv}',
@@ -66,6 +89,8 @@ rule remove_chrprefix:
         """
 
 
+
+BOWTIE_FA = '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/GRCh38_noalt_as/GRCh38_noalt_as.fa'
 rule octopus_fast:
     input:
         bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + SUFFIX + '_RG.bam'),
@@ -76,4 +101,3 @@ rule octopus_fast:
         """
         ~/miniconda3/bin/octopus --reference {BOWTIE_FA} --reads {input.bam} -o {output} --fast --threads
         """
-
