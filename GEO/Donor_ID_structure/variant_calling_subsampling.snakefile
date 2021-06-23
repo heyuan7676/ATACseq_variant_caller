@@ -35,8 +35,8 @@ rule subset_fastq:
     shell:
         """
         cd {params.tool_dir}
-        ./seqtk sample -s100 {input.reads1} 5000000 > {params.reads1}
-        ./seqtk sample -s100 {input.reads2} 5000000 > {params.reads2}
+        ./seqtk sample -s100 {input.reads1} 10000000 > {params.reads1}
+        ./seqtk sample -s100 {input.reads2} 10000000 > {params.reads2}
         gzip {params.reads1}
         gzip {params.reads2}
         """
@@ -71,8 +71,8 @@ rule add_RG:
     input:
         os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.bam')
     output:
-        bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam')),
-        bai = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai'))
+        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam'),
+        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai')
     params:
         label = '{indiv}',
         grid = '{indiv}',
@@ -84,31 +84,11 @@ rule add_RG:
         """
 
 
-rule remove_chrprefix:
-    input:
-        os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '.bam')
-    output:
-        rg_bam = temp(os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + '-RG.bam')),
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam'),
-        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_nochr.bam.bai')
-    params:
-        label = '{indiv}',
-        grid = '{indiv}',
-        rgsm = '{indiv}'
-    shell:
-        """
-        {PICARD} AddOrReplaceReadGroups I={input}  O={output.rg_bam}  RGID={params.grid} RGLB={params.label} RGPL={RGPL} RGSM={params.rgsm} RGPU={RGPU} TMP_DIR={TMP_DIR}
-        {SAMTOOLS} view -H {output.rg_bam} | sed  -e 's/chr//g'  | {SAMTOOLS} reheader - {output.rg_bam} > {output.bam}
-        {SAMTOOLS} index {output.bam}
-        """
-
-
 
 BOWTIE_FA = '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/GRCh38_noalt_as/GRCh38_noalt_as.fa'
 rule octopus_fast:
     input:
         bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam'),
-        bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai'),
     output:
          os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf')
     shell:

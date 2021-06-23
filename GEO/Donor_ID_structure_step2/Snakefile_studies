@@ -24,16 +24,18 @@ INDIVS = []
 fn = open('studies.txt', 'r')
 for line in fn.readlines():
     line = line.rstrip()
-    if 'PRJNA511003' in line:
-        INDIVS.append(line.split(',')[0])
+    INDIVS.append(line.split(',')[0])
 
-#INDIVS = glob_wildcards(os.path.join(FQ_DIR, '{indiv}_R2.fastq.gz'))
-#INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf'))
-#INDIVS = INDIVS[0]
-#INDIVS = [ id for id in INDIVS if '/' not in id ]
-#INDIVS = [x for x in INDIVS if '5000000' in x]
+INDIVS_finished = glob_wildcards(os.path.join(VCF_DIR, 'minDP5', '{indiv}.filtered.minDP5.recode.dosage_genotype.octopus.bed'))
+INDIVS_finished = INDIVS_finished[0]
+INDIVS_finished = [ id for id in INDIVS_finished if '/' not in id ]
+
+INDIVS_use = [x for x in INDIVS if x in INDIVS_finished]
+
+INDIVS = INDIVS_use
 INDIVS.sort()
 
+print(INDIVS)
 print(len(INDIVS))
 
 os.makedirs(FQ_DIR, exist_ok = True)
@@ -52,8 +54,12 @@ THREADS = config['THREADS']
 
 ## These need to after the global variables in order to use them 
 include : 'variant_calling_subsampling.snakefile'
+include : 'obtain_genotype_called_octopus.snakefile'
+include : 'obtain_genotype_called_octopus_MQ.snakefile'
 
-minDP_arr = ['5']
+minDP_arr = ['3', '4', '5']
+#minMQ_arr = ['10', '20', '30']
+#minDP_arr = ['5']
 CHROM = config['CHROM']
 suffix = 'recode'
 
@@ -61,3 +67,5 @@ suffix = 'recode'
 rule all:
     input:
         expand(os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf'), indiv = INDIVS),
+        expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + suffix + ".txt"), minDP = minDP_arr, chr = CHROM),
+        #expand(os.path.join(VCF_DIR, 'minMQ' + "{minMQ}", "dosage_by_sample_matrix_chr{chr}." + suffix + ".txt"), minMQ = minMQ_arr, chr = CHROM),

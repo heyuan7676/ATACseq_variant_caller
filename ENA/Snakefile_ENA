@@ -14,41 +14,42 @@ DIR = config['DIR']
 
 FQ_DIR = config['FQ_DIR']
 BOWTIE_DIR = config['BOWTIE_DIR']
-PEAK_DIR = os.path.join(BOWTIE_DIR, 'Peaks')
+PEAK_DIR_MACS2 = os.path.join(BOWTIE_DIR, 'Peaks_MACS2')
 VCF_DIR = os.path.join(BOWTIE_DIR, 'VCF_files') 
 TMP_DIR = config['TMP_DIR']
+PICARD = config['PICARD']
+CRAMTOOLS = config['CRAMTOOLS']
 
 
-#INDIVS = []
-#fn = open('PRJNA388006.csv', 'r')
-#for line in fn.readlines():
-#    line = line.rstrip()
-#    INDIVS.append(line.split(',')[0])
+INDIVS = []
+fn = open('records/sample_metadata_xab.tsv', 'r')
+for line in fn.readlines():
+    line = line.rstrip()
+    if 'PAIRED' in line:
+        INDIVS.append(line.split('	')[3])
 
-#print(INDIVS)
+INDIVS = INDIVS[14:15]
 
-INDIVS = glob_wildcards(os.path.join(FQ_DIR, '{indiv}_R2.fastq.gz'))
+#INDIVS = glob_wildcards(os.path.join(FQ_DIR, '{indiv}_R2.fastq.gz'))
 #INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf'))
-INDIVS = INDIVS[0]
-INDIVS = [ id for id in INDIVS if '/' not in id ]
+#INDIVS = INDIVS[0]
+#INDIVS = [ id for id in INDIVS if '/' not in id ]
 #INDIVS = [x for x in INDIVS if '5000000' in x]
 INDIVS.sort()
 
 print(len(INDIVS))
 
 os.makedirs(FQ_DIR, exist_ok = True)
+os.makedirs(os.path.join(FQ_DIR, 'subsampling'), exist_ok = True)
 os.makedirs(BOWTIE_DIR, exist_ok = True)
 os.makedirs(os.path.join(BOWTIE_DIR, 'subsampling'), exist_ok = True)
-os.makedirs(PEAK_DIR, exist_ok = True)
+os.makedirs(PEAK_DIR_MACS2, exist_ok = True)
 os.makedirs(VCF_DIR, exist_ok = True)
 
 # Bowtie 2 genome
 BOWTIE_GENOME_INDEX = config['BOWTIE_GENOME_INDEX']
 SUFFIX = '.bowtie2.grch38.sortedByCoord.out'
 
-GENOME = config['GENOME']
-#GENOME_STAR = config['GENOME_STAR']
-VCFFN = config['VCFFN']
 
 THREADS = config['THREADS']
 
@@ -63,11 +64,7 @@ suffix = 'recode'
 ''' Snakemake rules '''
 rule all:
     input:
-        #expand(os.path.join(FQ_DIR, '{indiv}' + '_R1.fastq.gz'), indiv = INDIVS),
-        #expand(os.path.join(FQ_DIR, '{indiv}' + '_R2.fastq.gz'), indiv = INDIVS),
-        #expand(os.path.join(VCF_DIR, 'minDP{minDP}', '{indiv}' + '.filtered.minDP' + '{minDP}' + '.recode.vcf.gz'), indiv = INDIVS, minDP = minDP_arr),
-        #expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + suffix + ".txt"), minDP = minDP_arr, chr = CHROM)
-        #expand(os.path.join(VCF_DIR, '{indiv}.octopus.vcf'), indiv = INDIVS),
+        expand(os.path.join(PEAK_DIR_MACS2, '{indiv}' + '_peaks.narrowPeak'), indiv = INDIVS),
+        expand(os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.cram'), indiv = INDIVS),
         expand(os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf'), indiv = INDIVS),
         #expand(os.path.join(VCF_DIR, 'minDP' + "{minDP}", "dosage_by_sample_matrix_chr{chr}." + suffix + ".txt"), minDP = minDP_arr, chr = CHROM)
-        #expand(os.path.join(VCF_DIR, '{indiv}.octopus.superfast.vcf'), indiv = INDIVS),
