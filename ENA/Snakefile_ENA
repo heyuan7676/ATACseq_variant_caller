@@ -22,19 +22,34 @@ CRAMTOOLS = config['CRAMTOOLS']
 
 
 INDIVS = []
-fn = open('records/sample_metadata_xab.tsv', 'r')
+fn = open('records/sample_metadata_noSC.tsv', 'r')
+fn.readline()
 for line in fn.readlines():
     line = line.rstrip()
-    if 'PAIRED' in line:
+    #if 'PAIRED' in line:
+    try:
+        N = int(line.split('	')[9])
+    except:
+        N = 100000000
+    if N > 10000000:
         INDIVS.append(line.split('	')[3])
 
-INDIVS = INDIVS[14:15]
+INDIVS = INDIVS[1000:1500]
 
-#INDIVS = glob_wildcards(os.path.join(FQ_DIR, '{indiv}_R2.fastq.gz'))
-#INDIVS = glob_wildcards(os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf'))
-#INDIVS = INDIVS[0]
-#INDIVS = [ id for id in INDIVS if '/' not in id ]
-#INDIVS = [x for x in INDIVS if '5000000' in x]
+INDIVS_SE = glob_wildcards(os.path.join(PEAK_DIR_MACS2, '{indiv}_peaks.narrowPeak'))
+INDIVS_SE = INDIVS_SE[0]
+INDIVS_SE = [ id for id in INDIVS_SE if '/' not in id ]
+
+INDIVS = list(set(INDIVS) - set(INDIVS_SE))
+INDIVS.sort()
+#print(len(INDIVS))
+
+
+INDIVS_SE = glob_wildcards(os.path.join(FQ_DIR, '{indiv}.fastq.gz'))
+INDIVS_SE = INDIVS_SE[0]
+INDIVS_SE = [ id for id in INDIVS_SE if '/' not in id ]
+
+INDIVS = list(set(INDIVS) - set(INDIVS_SE))
 INDIVS.sort()
 
 print(len(INDIVS))

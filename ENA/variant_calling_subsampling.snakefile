@@ -21,8 +21,8 @@ rule subset_fastq:
     shell:
         """
         cd {params.tool_dir}
-        ./seqtk sample -s100 {input.reads1} 5000000 > {params.reads1}
-        ./seqtk sample -s100 {input.reads2} 5000000 > {params.reads2}
+        ./seqtk sample -s100 {input.reads1} 10000000 > {params.reads1}
+        ./seqtk sample -s100 {input.reads2} 10000000 > {params.reads2}
         gzip {params.reads1}
         gzip {params.reads2}
         """
@@ -73,7 +73,7 @@ rule add_RG:
 BOWTIE_FA = '/work-zfs/abattle4/heyuan/database/bowtie2/grch38/GRCh38_noalt_as/GRCh38_noalt_as.fa'
 rule octopus_fast:
     input:
-        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '-RG.bam'),
+        bam = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam'),
         bai = os.path.join(BOWTIE_DIR, 'subsampling', '{indiv}' + suffix + '_RG.bam.bai')
     output:
          os.path.join(VCF_DIR, '{indiv}.octopus.fast.vcf')

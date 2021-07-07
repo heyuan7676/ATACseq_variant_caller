@@ -13,7 +13,7 @@ rule download:
     shell:
         """
         cd {params.outdir}
-        kingfisher get -r {wildcards.indiv} -m ena-ascp ena-ftp
+        kingfisher get -r {wildcards.indiv} -m ena-ascp ena-ftp aws-http prefetch
         """
 
 
@@ -50,7 +50,8 @@ rule peak_calling_macs2:
     output:
         bed = temp(os.path.join(PEAK_DIR_MACS2, '{indiv}' + '-clean.bed')),
         output = os.path.join(PEAK_DIR_MACS2, '{indiv}' + '_peaks.narrowPeak'),
-        cram = os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.cram')
+        cram = os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.cram'),
+        qc = os.path.join(BOWTIE_DIR, '{indiv}' + SUFFIX + '.cram.qc.txt'),
     params:
         outdir =  PEAK_DIR_MACS2,
         prefix =  '{indiv}',
@@ -61,6 +62,6 @@ rule peak_calling_macs2:
         {BEDTOOLS} bamtobed -i {input} > {output.bed}
         {MACS2} callpeak -t {output.bed} -f BED -g hs --nomodel --shift -100 --extsize 200 --outdir {params.outdir} -n {params.prefix} -q 0.05
         {CRAMTOOLS} cram --input-bam-file {input} --reference-fasta-file {BOWTIE_FA} --output-cram-file {output.cram}
+        {SAMTOOLS} flagstat {output.cram} > {output.qc}
         """
-
 
