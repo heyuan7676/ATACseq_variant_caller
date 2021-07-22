@@ -7,10 +7,10 @@ from collections import OrderedDict
 import sys
 
 #minDP = int(sys.argv[1])
-#study = sys.argv[2]
+study = sys.argv[1]
 
 minDP = 5
-study = 'PRJEB17990'
+#study = 'PRJEB17990'
 
 ENA_info = pd.read_csv('/work-zfs/abattle4/heyuan/Variant_calling/ENA/records/sample_metadata_noSC.tsv', sep='\t', index_col = 0)
 ENA_info = ENA_info.fillna('None')
